@@ -14,6 +14,7 @@ namespace Composer\Test\EventDispatcher;
 
 use Composer\EventDispatcher\Event;
 use Composer\EventDispatcher\EventDispatcher;
+use Composer\EventDispatcher\ScriptExecutionException;
 use Composer\Installer\InstallerEvents;
 use Composer\Config;
 use Composer\Composer;
@@ -32,21 +33,15 @@ class EventDispatcherTest extends TestCase
     {
         self::expectException('RuntimeException');
 
-        $io = $this->getMockBuilder('Composer\IO\IOInterface')->getMock();
+        $io = $this->getIOMock(IOInterface::NORMAL);
         $dispatcher = $this->getDispatcherStubForListenersTest([
             'Composer\Test\EventDispatcher\EventDispatcherTest::call',
         ], $io);
 
-        $io->expects($this->once())
-            ->method('isVerbose')
-            ->willReturn(0);
-
-        $io->expects($this->atLeast(2))
-            ->method('writeError')
-            ->withConsecutive(
-                ['> Composer\Test\EventDispatcher\EventDispatcherTest::call'],
-                ['<error>Script Composer\Test\EventDispatcher\EventDispatcherTest::call handling the post-install-cmd event terminated with an exception</error>']
-            );
+        $io->expects([
+            ['text' => '> Composer\Test\EventDispatcher\EventDispatcherTest::call'],
+            ['text' => 'Script Composer\Test\EventDispatcher\EventDispatcherTest::call handling the post-install-cmd event terminated with an exception'],
+        ], true);
 
         $dispatcher->dispatchScript(ScriptEvents::POST_INSTALL_CMD, false);
     }
@@ -205,7 +200,7 @@ class EventDispatcherTest extends TestCase
             .'> ev1: Composer\Test\EventDispatcher\EventDispatcherTest::someMethod'.PHP_EOL
             .'> ev2: Composer\Test\EventDispatcher\EventDispatcherTest::someMethod'.PHP_EOL
             .'> ev2: Composer\Test\EventDispatcher\EventDispatcherTest->someMethod'.PHP_EOL;
-        $this->assertEquals($expected, $io->getOutput());
+        self::assertEquals($expected, $io->getOutput());
 
         $dispatcher->removeListener($this);
         $dispatcher->dispatch('ev1');
@@ -213,7 +208,7 @@ class EventDispatcherTest extends TestCase
 
         $expected .= '> ev1: Composer\Test\EventDispatcher\EventDispatcherTest::someMethod'.PHP_EOL
             .'> ev2: Composer\Test\EventDispatcher\EventDispatcherTest::someMethod'.PHP_EOL;
-        $this->assertEquals($expected, $io->getOutput());
+        self::assertEquals($expected, $io->getOutput());
     }
 
     public function testDispatcherCanExecuteCliAndPhpInSameEventScriptStack(): void
@@ -250,7 +245,7 @@ class EventDispatcherTest extends TestCase
         $expected = '> post-install-cmd: echo -n foo'.PHP_EOL.
             '> post-install-cmd: Composer\Test\EventDispatcher\EventDispatcherTest::someMethod'.PHP_EOL.
             '> post-install-cmd: echo -n bar'.PHP_EOL;
-        $this->assertEquals($expected, $io->getOutput());
+        self::assertEquals($expected, $io->getOutput());
     }
 
     public function testDispatcherCanPutEnv(): void
@@ -279,7 +274,7 @@ class EventDispatcherTest extends TestCase
 
         $expected = '> post-install-cmd: @putenv ABC=123'.PHP_EOL.
             '> post-install-cmd: Composer\Test\EventDispatcher\EventDispatcherTest::getTestEnv'.PHP_EOL;
-        $this->assertEquals($expected, $io->getOutput());
+        self::assertEquals($expected, $io->getOutput());
     }
 
     public function testDispatcherAppendsDirBinOnPathForEveryListener(): void
@@ -314,6 +309,51 @@ class EventDispatcherTest extends TestCase
         } else {
             Platform::clearEnv('COMPOSER_BIN_DIR');
         }
+    }
+
+    public function testDispatcherSupportForAdditionalArgs(): void
+    {
+        $process = $this->getProcessExecutorMock();
+        $dispatcher = $this->getMockBuilder('Composer\EventDispatcher\EventDispatcher')
+            ->setConstructorArgs([
+                $this->createComposerInstance(),
+                $io = new BufferIO('', OutputInterface::VERBOSITY_VERBOSE),
+                $process,
+            ])
+            ->onlyMethods([
+                'getListeners',
+            ])
+            ->getMock();
+
+        $reflMethod = new \ReflectionMethod($dispatcher, 'getPhpExecCommand');
+        if (PHP_VERSION_ID < 80100) {
+            $reflMethod->setAccessible(true);
+        }
+        $phpCmd = $reflMethod->invoke($dispatcher);
+
+        $args = ProcessExecutor::escape('ARG').' '.ProcessExecutor::escape('ARG2').' '.ProcessExecutor::escape('--arg');
+        $process->expects([
+            'echo -n foo',
+            $phpCmd.' foo.php '.$args.' then the rest',
+            'echo -n bar '.$args,
+        ], true);
+
+        $listeners = [
+            'echo -n foo @no_additional_args',
+            '@php foo.php @additional_args then the rest',
+            'echo -n bar',
+        ];
+
+        $dispatcher->expects($this->atLeastOnce())
+            ->method('getListeners')
+            ->will($this->returnValue($listeners));
+
+        $dispatcher->dispatchScript(ScriptEvents::POST_INSTALL_CMD, false, ['ARG', 'ARG2', '--arg']);
+
+        $expected = '> post-install-cmd: echo -n foo'.PHP_EOL.
+            '> post-install-cmd: @php foo.php '.$args.' then the rest'.PHP_EOL.
+            '> post-install-cmd: echo -n bar '.$args.PHP_EOL;
+        self::assertEquals($expected, $io->getOutput());
     }
 
     public static function createsVendorBinFolderChecksEnvDoesNotContainsBin(): void
@@ -391,7 +431,7 @@ class EventDispatcherTest extends TestCase
             '> group: @subgroup'.PHP_EOL.
             '> subgroup: echo -n baz'.PHP_EOL.
             '> group: echo -n bar'.PHP_EOL;
-        $this->assertEquals($expected, $io->getOutput());
+        self::assertEquals($expected, $io->getOutput());
     }
 
     public function testRecursionInScriptsNames(): void
@@ -430,7 +470,7 @@ class EventDispatcherTest extends TestCase
         $expected = "> helloWorld: @hello World".PHP_EOL.
             "> hello: echo Hello " .self::getCmd("'World'").PHP_EOL;
 
-        $this->assertEquals($expected, $io->getOutput());
+        self::assertEquals($expected, $io->getOutput());
     }
 
     public function testDispatcherDetectInfiniteRecursion(): void
@@ -528,7 +568,7 @@ class EventDispatcherTest extends TestCase
         $dispatcher = $this->getMockBuilder('Composer\EventDispatcher\EventDispatcher')
             ->setConstructorArgs([
                 $this->createComposerInstance(),
-                $io = $this->getMockBuilder('Composer\IO\IOInterface')->getMock(),
+                $io = $this->getIOMock(IOInterface::NORMAL),
                 new ProcessExecutor,
             ])
             ->onlyMethods(['getListeners'])
@@ -540,22 +580,13 @@ class EventDispatcherTest extends TestCase
             ->method('getListeners')
             ->will($this->returnValue($listener));
 
-        $io->expects($this->once())
-            ->method('isVerbose')
-            ->willReturn(0);
+        $io->expects([
+            ['text' => '> exit 1'],
+            ['text' => 'Script '.$code.' handling the post-install-cmd event returned with error code 1'],
+        ], true);
 
-        $io->expects($this->atLeast(2))
-            ->method('writeError')
-            ->withConsecutive(
-                ['> exit 1'],
-                ['<error>Script '.$code.' handling the post-install-cmd event returned with error code 1</error>']
-            );
-
-        $io->expects($this->once())
-            ->method('isInteractive')
-            ->willReturn(1);
-
-        self::expectException('RuntimeException');
+        self::expectException(ScriptExecutionException::class);
+        self::expectExceptionMessage('Error Output: ');
         $dispatcher->dispatchScript(ScriptEvents::POST_INSTALL_CMD, false);
     }
 

@@ -12,6 +12,7 @@
 
 namespace Composer\Command;
 
+use Composer\Advisory\Auditor;
 use Composer\Pcre\Preg;
 use Composer\Util\Filesystem;
 use Composer\Util\Platform;
@@ -274,10 +275,23 @@ EOT
         // show the value if no value is provided
         if ([] === $input->getArgument('setting-value') && !$input->getOption('unset')) {
             $properties = self::CONFIGURABLE_PACKAGE_PROPERTIES;
+            $propertiesDefaults = [
+                'type' => 'library',
+                'description' => '',
+                'homepage' => '',
+                'minimum-stability' => 'stable',
+                'prefer-stable' => false,
+                'keywords' => [],
+                'license' => [],
+                'suggest' => [],
+                'extra' => [],
+            ];
             $rawData = $this->configFile->read();
             $data = $this->config->all();
+            $source = $this->config->getSourceOfValue($settingKey);
+
             if (Preg::isMatch('/^repos?(?:itories)?(?:\.(.+))?/', $settingKey, $matches)) {
-                if (!isset($matches[1]) || $matches[1] === '') {
+                if (!isset($matches[1])) {
                     $value = $data['repositories'] ?? [];
                 } else {
                     if (!isset($data['repositories'][$matches[1]])) {
@@ -311,19 +325,33 @@ EOT
                 $value = $data;
             } elseif (isset($data['config'][$settingKey])) {
                 $value = $this->config->get($settingKey, $input->getOption('absolute') ? 0 : Config::RELATIVE_PATHS);
+                // ensure we get {} output for properties which are objects
+                if ($value === []) {
+                    $schema = JsonFile::parseJson((string) file_get_contents(JsonFile::COMPOSER_SCHEMA_PATH));
+                    if (
+                        isset($schema['properties']['config']['properties'][$settingKey]['type'])
+                        && in_array('object', (array) $schema['properties']['config']['properties'][$settingKey]['type'], true)
+                    ) {
+                        $value = new \stdClass;
+                    }
+                }
             } elseif (isset($rawData[$settingKey]) && in_array($settingKey, $properties, true)) {
                 $value = $rawData[$settingKey];
+                $source = $this->configFile->getPath();
+            } elseif (isset($propertiesDefaults[$settingKey])) {
+                $value = $propertiesDefaults[$settingKey];
+                $source = 'defaults';
             } else {
                 throw new \RuntimeException($settingKey.' is not defined');
             }
 
-            if (is_array($value)) {
+            if (is_array($value) || is_object($value) || is_bool($value)) {
                 $value = JsonFile::encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             }
 
             $sourceOfConfigValue = '';
             if ($input->getOption('source')) {
-                $sourceOfConfigValue = ' (' . $this->config->getSourceOfValue($settingKey) . ')';
+                $sourceOfConfigValue = ' (' . $source . ')';
             }
 
             $this->getIO()->write($value . $sourceOfConfigValue, true, IOInterface::QUIET);
@@ -413,7 +441,7 @@ EOT
             ],
             'bin-compat' => [
                 static function ($val): bool {
-                    return in_array($val, ['auto', 'full', 'symlink']);
+                    return in_array($val, ['auto', 'full', 'proxy', 'symlink']);
                 },
                 static function ($val) {
                     return $val;
@@ -441,6 +469,18 @@ EOT
             'prepend-autoloader' => [$booleanValidator, $booleanNormalizer],
             'disable-tls' => [$booleanValidator, $booleanNormalizer],
             'secure-http' => [$booleanValidator, $booleanNormalizer],
+            'bump-after-update' => [
+                static function ($val): bool {
+                    return in_array($val, ['dev', 'no-dev', 'true', 'false', '1', '0'], true);
+                },
+                static function ($val) {
+                    if ('dev' === $val || 'no-dev' === $val) {
+                        return $val;
+                    }
+
+                    return $val !== 'false' && (bool) $val;
+                },
+            ],
             'cafile' => [
                 static function ($val): bool {
                     return file_exists($val) && Filesystem::isReadable($val);
@@ -483,6 +523,14 @@ EOT
                     }
 
                     return $val !== 'false' && (bool) $val;
+                },
+            ],
+            'audit.abandoned' => [
+                static function ($val): bool {
+                    return in_array($val, [Auditor::ABANDONED_IGNORE, Auditor::ABANDONED_REPORT, Auditor::ABANDONED_FAIL], true);
+                },
+                static function ($val) {
+                    return $val;
                 },
             ],
         ];
@@ -529,7 +577,26 @@ EOT
                     return $vals;
                 },
             ],
+            'audit.ignore' => [
+                static function ($vals) {
+                    if (!is_array($vals)) {
+                        return 'array expected';
+                    }
+
+                    return true;
+                },
+                static function ($vals) {
+                    return $vals;
+                },
+            ],
         ];
+
+        // allow unsetting audit config entirely
+        if ($input->getOption('unset') && $settingKey === 'audit') {
+            $this->configSource->removeConfigSetting($settingKey);
+
+            return 0;
+        }
 
         if ($input->getOption('unset') && (isset($uniqueConfigValues[$settingKey]) || isset($multiConfigValues[$settingKey]))) {
             if ($settingKey === 'disable-tls' && $this->config->get('disable-tls')) {
@@ -609,7 +676,7 @@ EOT
             }],
             'minimum-stability' => [
                 static function ($val): bool {
-                    return isset(BasePackage::$stabilities[VersionParser::normalizeStability($val)]);
+                    return isset(BasePackage::STABILITIES[VersionParser::normalizeStability($val)]);
                 },
                 static function ($val): string {
                     return VersionParser::normalizeStability($val);
@@ -716,8 +783,12 @@ EOT
                     foreach ($bits as $bit) {
                         $currentValue = $currentValue[$bit] ?? null;
                     }
-                    if (is_array($currentValue)) {
-                        $value = array_merge($currentValue, $value);
+                    if (is_array($currentValue) && is_array($value)) {
+                        if (array_is_list($currentValue) && array_is_list($value)) {
+                            $value = array_merge($currentValue, $value);
+                        } else {
+                            $value = $value + $currentValue;
+                        }
                     }
                 }
             }
@@ -954,7 +1025,7 @@ EOT
     }
 
     /**
-     * Suggest setting-keys, while taking given options in acount.
+     * Suggest setting-keys, while taking given options in account.
      */
     private function suggestSettingKeys(): \Closure
     {

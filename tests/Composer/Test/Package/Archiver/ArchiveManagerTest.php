@@ -21,7 +21,7 @@ use Composer\Test\Mock\FactoryMock;
 use Composer\Util\Platform;
 use Composer\Util\ProcessExecutor;
 
-class ArchiveManagerTest extends ArchiverTest
+class ArchiveManagerTest extends ArchiverTestCase
 {
     /**
      * @var ArchiveManager
@@ -69,10 +69,10 @@ class ArchiveManagerTest extends ArchiverTest
         $this->manager->archive($package, 'tar', $this->targetDir);
 
         $target = $this->getTargetName($package, 'tar');
-        $this->assertFileExists($target);
+        self::assertFileExists($target);
 
         $tmppath = sys_get_temp_dir().'/composer_archiver/'.$this->manager->getPackageFilename($package);
-        $this->assertFileDoesNotExist($tmppath);
+        self::assertFileDoesNotExist($tmppath);
 
         unlink($target);
     }
@@ -91,12 +91,36 @@ class ArchiveManagerTest extends ArchiverTest
 
         $target = $this->targetDir . '/' . $fileName . '.tar';
 
-        $this->assertFileExists($target);
+        self::assertFileExists($target);
 
         $tmppath = sys_get_temp_dir().'/composer_archiver/'.$this->manager->getPackageFilename($package);
-        $this->assertFileDoesNotExist($tmppath);
+        self::assertFileDoesNotExist($tmppath);
 
         unlink($target);
+    }
+
+    public function testGetPackageFilenameParts(): void
+    {
+        $expected = [
+            'base' => 'archivertest-archivertest',
+            'version' => 'master',
+            'source_reference' => '4f26ae',
+        ];
+        $package = $this->setupPackage();
+
+        self::assertSame(
+            $expected,
+            $this->manager->getPackageFilenameParts($package)
+        );
+    }
+
+    public function testGetPackageFilename(): void
+    {
+        $package = $this->setupPackage();
+        self::assertSame(
+            'archivertest-archivertest-master-4f26ae',
+            $this->manager->getPackageFilename($package)
+        );
     }
 
     protected function getTargetName(CompletePackage $package, string $format, ?string $fileName = null): string

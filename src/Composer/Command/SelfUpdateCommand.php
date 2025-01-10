@@ -23,6 +23,7 @@ use Composer\SelfUpdate\Versions;
 use Composer\IO\IOInterface;
 use Composer\Downloader\FilesystemException;
 use Composer\Downloader\TransportException;
+use Phar;
 use Symfony\Component\Console\Input\InputInterface;
 use Composer\Console\Input\InputOption;
 use Composer\Console\Input\InputArgument;
@@ -66,7 +67,7 @@ versions of composer and if found, installs the latest.
 
 <info>php composer.phar self-update</info>
 
-Read more at https://getcomposer.org/doc/03-cli.md#self-update-selfupdate-
+Read more at https://getcomposer.org/doc/03-cli.md#self-update-selfupdate
 EOT
             )
         ;
@@ -116,9 +117,9 @@ EOT
         $cacheDir = $config->get('cache-dir');
         $rollbackDir = $config->get('data-dir');
         $home = $config->get('home');
-        $localFilename = realpath($_SERVER['argv'][0]);
-        if (false === $localFilename) {
-            $localFilename = $_SERVER['argv'][0];
+        $localFilename = Phar::running(false);
+        if ('' === $localFilename) {
+            throw new \RuntimeException('Could not determine the location of the composer.phar file as it appears you are not running this code from a phar archive.');
         }
 
         if ($input->getOption('update-keys')) {
@@ -146,7 +147,7 @@ EOT
             $homeDirOwnerId = fileowner($home);
             if (is_array($composerUser) && $homeDirOwnerId !== false) {
                 $homeOwner = posix_getpwuid($homeDirOwnerId);
-                if (is_array($homeOwner) && isset($composerUser['name'], $homeOwner['name']) && $composerUser['name'] !== $homeOwner['name']) {
+                if (is_array($homeOwner) && $composerUser['name'] !== $homeOwner['name']) {
                     $io->writeError('<warning>You are running Composer as "'.$composerUser['name'].'", while "'.$home.'" is owned by "'.$homeOwner['name'].'"</warning>');
                 }
             }
@@ -154,6 +155,10 @@ EOT
 
         if ($input->getOption('rollback')) {
             return $this->rollback($output, $rollbackDir, $localFilename);
+        }
+
+        if ($input->getArgument('command') === 'self' && $input->getArgument('version') === 'update') {
+            $input->setArgument('version', null);
         }
 
         $latest = $versionsUtil->getLatest();
@@ -324,8 +329,8 @@ TAGSPUBKEY
             $verified = 1 === openssl_verify((string) file_get_contents($tempFilename), $signatureSha384, $pubkeyid, $algo);
 
             // PHP 8 automatically frees the key instance and deprecates the function
-            if (PHP_VERSION_ID < 80000) {
-                // @phpstan-ignore-next-line
+            if (\PHP_VERSION_ID < 80000) {
+                // @phpstan-ignore function.deprecated
                 openssl_free_key($pubkeyid);
             }
 
@@ -369,6 +374,7 @@ TAGSPUBKEY
         $io->write('Open <info>https://composer.github.io/pubkeys.html</info> to find the latest keys');
 
         $validator = static function ($value): string {
+            $value = (string) $value;
             if (!Preg::isMatch('{^-----BEGIN PUBLIC KEY-----$}', trim($value))) {
                 throw new \UnexpectedValueException('Invalid input');
             }
@@ -379,7 +385,7 @@ TAGSPUBKEY
         $devKey = '';
         while (!Preg::isMatch('{(-----BEGIN PUBLIC KEY-----.+?-----END PUBLIC KEY-----)}s', $devKey, $match)) {
             $devKey = $io->askAndValidate('Enter Dev / Snapshot Public Key (including lines with -----): ', $validator);
-            while ($line = $io->ask('')) {
+            while ($line = $io->ask('', '')) {
                 $devKey .= trim($line)."\n";
                 if (trim($line) === '-----END PUBLIC KEY-----') {
                     break;
@@ -392,7 +398,7 @@ TAGSPUBKEY
         $tagsKey = '';
         while (!Preg::isMatch('{(-----BEGIN PUBLIC KEY-----.+?-----END PUBLIC KEY-----)}s', $tagsKey, $match)) {
             $tagsKey = $io->askAndValidate('Enter Tags Public Key (including lines with -----): ', $validator);
-            while ($line = $io->ask('')) {
+            while ($line = $io->ask('', '')) {
                 $tagsKey .= trim($line)."\n";
                 if (trim($line) === '-----END PUBLIC KEY-----') {
                     break;

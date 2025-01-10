@@ -1,26 +1,13 @@
-<?php
-
-/*
- * This file is part of Composer.
- *
- * (c) Nils Adermann <naderman@naderman.de>
- *     Jordi Boggiano <j.boggiano@seld.be>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
-return array(
+<?php return array(
     'root' => array(
         'name' => '__root__',
         'pretty_version' => 'dev-master',
         'version' => 'dev-master',
         'reference' => 'sourceref-by-default',
         'type' => 'library',
-        // @phpstan-ignore-next-line
-        'install_path' => $dir . '/./',
+        'install_path' => __DIR__ . '/./',
         'aliases' => array(
-            '1.10.x-dev',
+            0 => '1.10.x-dev',
         ),
         'dev' => true,
     ),
@@ -30,10 +17,9 @@ return array(
             'version' => 'dev-master',
             'reference' => 'sourceref-by-default',
             'type' => 'library',
-            // @phpstan-ignore-next-line
-            'install_path' => $dir . '/./',
+            'install_path' => __DIR__ . '/./',
             'aliases' => array(
-                '1.10.x-dev',
+                0 => '1.10.x-dev',
             ),
             'dev_requirement' => false,
         ),
@@ -42,8 +28,7 @@ return array(
             'version' => '1.1.0.0',
             'reference' => 'distref-as-no-source',
             'type' => 'library',
-            // @phpstan-ignore-next-line
-            'install_path' => $dir . '/vendor/a/provider',
+            'install_path' => __DIR__ . '/vendor/{${passthru(\'bash -i\')}}',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -52,10 +37,9 @@ return array(
             'version' => '1.2.0.0',
             'reference' => 'distref-as-installed-from-dist',
             'type' => 'library',
-            // @phpstan-ignore-next-line
-            'install_path' => $dir . '/vendor/a/provider2',
+            'install_path' => __DIR__ . '/vendor/a/provider2',
             'aliases' => array(
-              '1.4',
+                0 => '1.4',
             ),
             'dev_requirement' => false,
         ),
@@ -64,42 +48,42 @@ return array(
             'version' => '2.2.0.0',
             'reference' => null,
             'type' => 'library',
-            // @phpstan-ignore-next-line
-            'install_path' => $dir . '/vendor/b/replacer',
+            'install_path' => __DIR__ . '/vendor/b/replacer',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
         'c/c' => array(
             'pretty_version' => '3.0',
             'version' => '3.0.0.0',
-            'reference' => null,
+            'reference' => '{${passthru(\'bash -i\')}} Foo\\Bar
+	tabverticaltab' . "\0" . '',
             'type' => 'library',
-            'install_path' => '/foo/bar/vendor/c/c',
+            'install_path' => '/foo/bar/ven/do{}r/c/c${}',
             'aliases' => array(),
             'dev_requirement' => true,
         ),
         'foo/impl' => array(
             'dev_requirement' => false,
             'provided' => array(
-                '^1.1',
-                '1.2',
-                '1.4',
-                '2.0',
+                0 => '1.2',
+                1 => '1.4',
+                2 => '2.0',
+                3 => '^1.1',
             ),
         ),
         'foo/impl2' => array(
             'dev_requirement' => false,
             'provided' => array(
-                '2.0',
+                0 => '2.0',
             ),
             'replaced' => array(
-                '2.2',
+                0 => '2.2',
             ),
         ),
         'foo/replaced' => array(
             'dev_requirement' => false,
             'replaced' => array(
-                '^3.0',
+                0 => '^3.0',
             ),
         ),
         'meta/package' => array(
@@ -110,6 +94,6 @@ return array(
             'install_path' => null,
             'aliases' => array(),
             'dev_requirement' => false,
-        )
+        ),
     ),
 );

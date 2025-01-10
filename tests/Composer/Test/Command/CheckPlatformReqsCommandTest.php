@@ -47,7 +47,7 @@ class CheckPlatformReqsCommandTest extends TestCase
         $appTester->run(array_merge(['command' => 'check-platform-reqs'], $command));
 
         $appTester->assertCommandIsSuccessful();
-        $this->assertSame(trim($expected), trim($appTester->getDisplay(true)));
+        self::assertSame(trim($expected), trim($appTester->getDisplay(true)));
     }
 
     public function testExceptionThrownIfNoLockfileFound(): void
@@ -87,5 +87,56 @@ ext-foobar 2.3.4   success'
             ['--lock' => true],
             "Checking platform requirements using the lock file\next-barbaz 2.3.4.5   success \next-foobar 2.3.4     success"
         ];
+    }
+
+    public function testFailedPlatformRequirement(): void
+    {
+        $this->initTempComposer([
+            'require' => [
+                'ext-foobar' => '^0.3'
+            ],
+            'require-dev' => [
+                'ext-barbaz' => '^2.3'
+            ]
+        ]);
+
+        $packages = [
+            self::getPackage('ext-foobar', '2.3.4'),
+        ];
+        $devPackages = [
+            self::getPackage('ext-barbaz', '2.3.4.5')
+        ];
+
+        $this->createInstalledJson($packages, $devPackages);
+
+        $this->createComposerLock($packages, $devPackages);
+
+        $appTester = $this->getApplicationTester();
+        $appTester->run(['command' => 'check-platform-reqs', '--format' => 'json']);
+
+        $expected = 'Checking platform requirements for packages in the vendor dir
+[
+    {
+        "name": "ext-barbaz",
+        "version": "2.3.4.5",
+        "status": "success",
+        "failed_requirement": null,
+        "provider": null
+    },
+    {
+        "name": "ext-foobar",
+        "version": "2.3.4",
+        "status": "failed",
+        "failed_requirement": {
+            "source": "__root__",
+            "type": "requires",
+            "target": "ext-foobar",
+            "constraint": "^0.3"
+        },
+        "provider": null
+    }
+]';
+
+        self::assertSame(trim($expected), trim($appTester->getDisplay(true)));
     }
 }

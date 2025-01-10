@@ -43,7 +43,7 @@ class GitLabDriver extends VcsDriver
     /**
      * @var mixed[] Project data returned by GitLab API
      */
-    private $project;
+    private $project = null;
 
     /**
      * @var array<string|int, mixed[]> Keeps commits returned by GitLab API as commit id => info
@@ -97,8 +97,6 @@ class GitLabDriver extends VcsDriver
             throw new \InvalidArgumentException(sprintf('The GitLab repository URL %s is invalid. It must be the HTTP URL of a GitLab project.', $this->url));
         }
 
-        assert(is_string($match['parts']));
-        assert(is_string($match['repo']));
         $guessedDomain = $match['domain'] ?? (string) $match['domain2'];
         $configuredDomains = $this->config->get('gitlab-domains');
         $urlParts = explode('/', $match['parts']);
@@ -109,13 +107,13 @@ class GitLabDriver extends VcsDriver
         ;
         $origin = self::determineOrigin($configuredDomains, $guessedDomain, $urlParts, $match['port']);
         if (false === $origin) {
-            throw new \LogicException('It should not be possible to create a gitlab driver with an unparseable origin URL ('.$this->url.')');
+            throw new \LogicException('It should not be possible to create a gitlab driver with an unparsable origin URL ('.$this->url.')');
         }
         $this->originUrl = $origin;
 
         if (is_string($protocol = $this->config->get('gitlab-protocol'))) {
             // https treated as a synonym for http.
-            if (!in_array($protocol, ['git', 'http', 'https'])) {
+            if (!in_array($protocol, ['git', 'http', 'https'], true)) {
                 throw new \RuntimeException('gitlab-protocol must be one of git, http.');
             }
             $this->protocol = $protocol === 'git' ? 'ssh' : 'http';
@@ -167,6 +165,9 @@ class GitLabDriver extends VcsDriver
 
             if (null !== $composer) {
                 // specials for gitlab (this data is only available if authentication is provided)
+                if (isset($composer['support']) && !is_array($composer['support'])) {
+                    $composer['support'] = [];
+                }
                 if (!isset($composer['support']['source']) && isset($this->project['web_url'])) {
                     $label = array_search($identifier, $this->getTags(), true) ?: array_search($identifier, $this->getBranches(), true) ?: $identifier;
                     $composer['support']['source'] = sprintf('%s/-/tree/%s', $this->project['web_url'], $label);
@@ -378,6 +379,10 @@ class GitLabDriver extends VcsDriver
 
     protected function fetchProject(): void
     {
+        if (!is_null($this->project)) {
+            return;
+        }
+
         // we need to fetch the default branch from the api
         $resource = $this->getApiUrl();
         $this->project = $this->getContents($resource, true)->decodeJson();
@@ -559,8 +564,6 @@ class GitLabDriver extends VcsDriver
             return false;
         }
 
-        assert(is_string($match['parts']));
-        assert(is_string($match['repo']));
         $scheme = $match['scheme'];
         $guessedDomain = $match['domain'] ?? (string) $match['domain2'];
         $urlParts = explode('/', $match['parts']);
@@ -576,6 +579,18 @@ class GitLabDriver extends VcsDriver
         }
 
         return true;
+    }
+
+    /**
+     * Gives back the loaded <gitlab-api>/projects/<owner>/<repo> result
+     *
+     * @return mixed[]|null
+     */
+    public function getRepoData(): ?array
+    {
+        $this->fetchProject();
+
+        return $this->project;
     }
 
     protected function getNextPage(Response $response): ?string

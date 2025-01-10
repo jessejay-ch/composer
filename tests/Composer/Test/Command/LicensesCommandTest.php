@@ -23,6 +23,7 @@ class LicensesCommandTest extends TestCase
 
         $this->initTempComposer([
             'name' => 'test/pkg',
+            'version' => '1.2.3',
             'license' => 'MIT',
             'require' => [
                 'first/pkg' => '^2.0',
@@ -53,11 +54,11 @@ class LicensesCommandTest extends TestCase
     public function testBasicRun(): void
     {
         $appTester = $this->getApplicationTester();
-        $this->assertSame(0, $appTester->run(['command' => 'license']));
+        self::assertSame(0, $appTester->run(['command' => 'license']));
 
         $expected = [
             ["Name:", "test/pkg"],
-            ["Version:", "1.0.0+no-version-set"],
+            ["Version:", "1.2.3"],
             ["Licenses:", "MIT"],
             ["Dependencies:"],
             [],
@@ -77,18 +78,21 @@ class LicensesCommandTest extends TestCase
                 continue;
             }
 
-            $this->assertMatchesRegularExpression("/" . implode("\s+", $expected[$i]) . "/", $line);
+            if (!isset($expected[$i])) {
+                $this->fail('Got more output lines than expected');
+            }
+            self::assertMatchesRegularExpression("/" . implode("\s+", $expected[$i]) . "/", $line);
         }
     }
 
     public function testNoDev(): void
     {
         $appTester = $this->getApplicationTester();
-        $this->assertSame(0, $appTester->run(['command' => 'license', '--no-dev' => true]));
+        self::assertSame(0, $appTester->run(['command' => 'license', '--no-dev' => true]));
 
         $expected = [
             ["Name:", "test/pkg"],
-            ["Version:", "1.0.0+no-version-set"],
+            ["Version:", "1.2.3"],
             ["Licenses:", "MIT"],
             ["Dependencies:"],
             [],
@@ -107,18 +111,21 @@ class LicensesCommandTest extends TestCase
                 continue;
             }
 
-            $this->assertMatchesRegularExpression("/" . implode("\s+", $expected[$i]) . "/", $line);
+            if (!isset($expected[$i])) {
+                $this->fail('Got more output lines than expected');
+            }
+            self::assertMatchesRegularExpression("/" . implode("\s+", $expected[$i]) . "/", $line);
         }
     }
 
     public function testFormatJson(): void
     {
         $appTester = $this->getApplicationTester();
-        $this->assertSame(0, $appTester->run(['command' => 'license', '--format' => 'json'], ['capture_stderr_separately' => true]));
+        self::assertSame(0, $appTester->run(['command' => 'license', '--format' => 'json'], ['capture_stderr_separately' => true]));
 
         $expected = [
             "name" => "test/pkg",
-            "version" => "1.0.0+no-version-set",
+            "version" => "1.2.3",
             "license" => ["MIT"],
             "dependencies" => [
                 "dev/pkg" => [
@@ -146,13 +153,13 @@ class LicensesCommandTest extends TestCase
             ]
         ];
 
-        $this->assertSame($expected, json_decode($appTester->getDisplay(), true));
+        self::assertSame($expected, json_decode($appTester->getDisplay(), true));
     }
 
     public function testFormatSummary(): void
     {
         $appTester = $this->getApplicationTester();
-        $this->assertSame(0, $appTester->run(['command' => 'license', '--format' => 'summary']));
+        self::assertSame(0, $appTester->run(['command' => 'license', '--format' => 'summary']));
 
         $expected = [
             ['-', '-'],
@@ -169,7 +176,7 @@ class LicensesCommandTest extends TestCase
         foreach ($expected as $i => $expect) {
             [$key, $value] = $expect;
 
-            $this->assertMatchesRegularExpression("/$key\s+$value/", $lines[$i]);
+            self::assertMatchesRegularExpression("/$key\s+$value/", $lines[$i]);
         }
     }
 

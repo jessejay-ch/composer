@@ -369,7 +369,6 @@ libSSH Version => libssh2/1.4.1',
             'curl: libssh not libssh2' => [
                 'curl',
                 '
-
 curl
 
 cURL support => enabled
@@ -411,6 +410,57 @@ libSSH Version => libssh/0.9.3/openssl/zlib',
                     'lib-curl-libssh' => '0.9.3',
                 ],
                 [['curl_version', [], ['version' => '7.68.0']]],
+            ],
+            'curl: SecureTransport' => [
+                'curl',
+                '
+curl
+
+cURL support => enabled
+cURL Information => 8.1.2
+Age => 10
+Features
+AsynchDNS => Yes
+CharConv => No
+Debug => No
+GSS-Negotiate => No
+IDN => Yes
+IPv6 => Yes
+krb4 => No
+Largefile => Yes
+libz => Yes
+NTLM => Yes
+NTLMWB => Yes
+SPNEGO => Yes
+SSL => Yes
+SSPI => No
+TLS-SRP => Yes
+HTTP2 => Yes
+GSSAPI => Yes
+KERBEROS5 => Yes
+UNIX_SOCKETS => Yes
+PSL => No
+HTTPS_PROXY => Yes
+MULTI_SSL => Yes
+BROTLI => Yes
+ALTSVC => Yes
+HTTP3 => No
+UNICODE => No
+ZSTD => Yes
+HSTS => Yes
+GSASL => No
+Protocols => dict, file, ftp, ftps, gopher, gophers, http, https, imap, imaps, ldap, ldaps, mqtt, pop3, pop3s, rtmp, rtmpe, rtmps, rtmpt, rtmpte, rtmpts, rtsp, scp, sftp, smb, smbs, smtp, smtps, telnet, tftp
+Host => aarch64-apple-darwin22.4.0
+SSL Version => (SecureTransport) OpenSSL/3.1.1
+ZLib Version => 1.2.11
+libSSH Version => libssh2/1.11.0',
+                [
+                    'lib-curl' => '8.1.2',
+                    'lib-curl-securetransport' => ['3.1.1', ['lib-curl-openssl']],
+                    'lib-curl-zlib' => '1.2.11',
+                    'lib-curl-libssh2' => '1.11.0',
+                ],
+                [['curl_version', [], ['version' => '8.1.2']]],
             ],
             'date' => [
                 'date',
@@ -948,6 +998,8 @@ pgsql.auto_reset_persistent => Off => Off
 pgsql.ignore_notice => Off => Off
 pgsql.log_notice => Off => Off',
                 ['lib-pgsql-libpq' => '12.2'],
+                [],
+                [['PGSQL_LIBPQ_VERSION', null, '12.2']],
             ],
             'pdo_pgsql' => [
                 'pdo_pgsql',
@@ -959,6 +1011,25 @@ PostgreSQL(libpq) Version => 12.1
 Module version => 7.1.33
 Revision =>  $Id: 9c5f356c77143981d2e905e276e439501fe0f419 $',
                 ['lib-pdo_pgsql-libpq' => '12.1'],
+            ],
+            'pq' => [
+                'pq',
+                'pq
+
+PQ Support => enabled
+Extension Version => 2.2.0
+
+Used Library => Compiled => Linked
+libpq => 14.3 (Ubuntu 14.3-1.pgdg22.04+1) => 15.0.2
+                ',
+                ['lib-pq-libpq' => '15.0.2'],
+            ],
+            'rdkafka' => [
+                'rdkafka',
+                null,
+                ['lib-rdkafka-librdkafka' => '1.9.2'],
+                [],
+                [['RD_KAFKA_VERSION', null, 17367807]],
             ],
             'libsodium' => [
                 'libsodium',
@@ -1166,7 +1237,7 @@ Linked Version => 1.2.11',
         $expectedLibraries = array_keys(array_filter($expectations, static function ($expectation): bool {
             return $expectation !== false;
         }));
-        self::assertCount(count(array_filter($expectedLibraries)), $libraries, sprintf('Expected: %s, got %s', var_export($expectedLibraries, true), var_export($libraries, true)));
+        self::assertCount(count($expectedLibraries), $libraries, sprintf('Expected: %s, got %s', var_export($expectedLibraries, true), var_export($libraries, true)));
 
         foreach ($extensions as $extension) {
             $expectations['ext-'.$extension] = $extensionVersion;
@@ -1185,8 +1256,8 @@ Linked Version => 1.2.11',
             } else {
                 self::assertNotNull($package, sprintf('Expected to find package "%s"', $packageName));
                 self::assertSame($expectedVersion, $package->getPrettyVersion(), sprintf('Expected version %s for %s', $expectedVersion, $packageName));
-                $this->assertPackageLinks('replaces', $expectedReplaces, $package, $package->getReplaces());
-                $this->assertPackageLinks('provides', $expectedProvides, $package, $package->getProvides());
+                self::assertPackageLinks('replaces', $expectedReplaces, $package, $package->getReplaces());
+                self::assertPackageLinks('provides', $expectedProvides, $package, $package->getProvides());
             }
         }
     }

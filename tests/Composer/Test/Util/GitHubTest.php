@@ -30,17 +30,10 @@ class GitHubTest extends TestCase
     public function testUsernamePasswordAuthenticationFlow(): void
     {
         $io = $this->getIOMock();
-        $io
-            ->expects($this->atLeastOnce())
-            ->method('writeError')
-            ->withConsecutive([$this->message])
-        ;
-        $io
-            ->expects($this->once())
-            ->method('askAndHideAnswer')
-            ->with('Token (hidden): ')
-            ->willReturn($this->password)
-        ;
+        $io->expects([
+            ['text' => $this->message],
+            ['ask' => 'Token (hidden): ', 'reply' => $this->password],
+        ]);
 
         $httpDownloader = $this->getHttpDownloaderMock();
         $httpDownloader->expects(
@@ -62,18 +55,15 @@ class GitHubTest extends TestCase
 
         $github = new GitHub($io, $config, null, $httpDownloader);
 
-        $this->assertTrue($github->authorizeOAuthInteractively($this->origin, $this->message));
+        self::assertTrue($github->authorizeOAuthInteractively($this->origin, $this->message));
     }
 
     public function testUsernamePasswordFailure(): void
     {
         $io = $this->getIOMock();
-        $io
-            ->expects($this->exactly(1))
-            ->method('askAndHideAnswer')
-            ->with('Token (hidden): ')
-            ->willReturn($this->password)
-        ;
+        $io->expects([
+            ['ask' => 'Token (hidden): ', 'reply' => $this->password],
+        ]);
 
         $httpDownloader = $this->getHttpDownloaderMock();
         $httpDownloader->expects(
@@ -90,21 +80,7 @@ class GitHubTest extends TestCase
 
         $github = new GitHub($io, $config, null, $httpDownloader);
 
-        $this->assertFalse($github->authorizeOAuthInteractively($this->origin));
-    }
-
-    /**
-     * @return \PHPUnit\Framework\MockObject\MockObject&\Composer\IO\ConsoleIO
-     */
-    private function getIOMock()
-    {
-        $io = $this
-            ->getMockBuilder('Composer\IO\ConsoleIO')
-            ->disableOriginalConstructor()
-            ->getMock()
-        ;
-
-        return $io;
+        self::assertFalse($github->authorizeOAuthInteractively($this->origin));
     }
 
     /**

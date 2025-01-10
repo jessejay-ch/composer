@@ -37,13 +37,14 @@ class VersionBumperTest extends TestCase
         $newConstraint = $versionBumper->bumpRequirement($versionParser->parseConstraints($requirement), $package);
 
         // assert that the recommended version is what we expect
-        $this->assertSame($expectedRequirement, $newConstraint);
+        self::assertSame($expectedRequirement, $newConstraint);
     }
 
     public static function provideBumpRequirementTests(): Generator
     {
         // constraint, version, expected recommendation, [branch-alias]
         yield 'upgrade caret' => ['^1.0', '1.2.1', '^1.2.1'];
+        yield 'upgrade caret with v' => ['^v1.0', '1.2.1', '^1.2.1'];
         yield 'skip trailing .0s' => ['^1.0', '1.0.0', '^1.0'];
         yield 'skip trailing .0s/2' => ['^1.2', '1.2.0', '^1.2'];
         yield 'preserve major.minor.patch format when installed minor is 0' => ['^1.0.0', '1.2.0', '^1.2.0'];
@@ -58,13 +59,22 @@ class VersionBumperTest extends TestCase
         yield 'dev version does not upgrade' => ['^3.2', 'dev-main', '^3.2'];
         yield 'upgrade dev version if aliased' => ['^3.2', 'dev-main', '^3.3', '3.3.x-dev'];
         yield 'upgrade major wildcard to caret' => ['2.*', '2.4.0', '^2.4'];
+        yield 'upgrade major wildcard to caret with v' => ['v2.*', '2.4.0', '^2.4'];
         yield 'upgrade major wildcard as x to caret' => ['2.x', '2.4.0', '^2.4'];
         yield 'upgrade major wildcard as x to caret/2' => ['2.x.x', '2.4.0', '^2.4.0'];
         yield 'leave minor wildcard alone' => ['2.4.*', '2.4.3', '2.4.*'];
         yield 'leave patch wildcard alone' => ['2.4.3.*', '2.4.3.2', '2.4.3.*'];
+        yield 'leave single tilde alone' => ['~2', '2.4.3', '~2'];
         yield 'upgrade tilde to caret when compatible' => ['~2.2', '2.4.3', '^2.4.3'];
-        yield 'leave patch-only-tilde alone' => ['~2.2.3', '2.2.6', '~2.2.3'];
+        yield 'upgrade patch-only-tilde, longer version' => ['~2.2.3', '2.2.6.2', '~2.2.6'];
+        yield 'upgrade patch-only-tilde' => ['~2.2.3', '2.2.6', '~2.2.6'];
+        yield 'upgrade patch-only-tilde, also .0s' => ['~2.0.0', '2.0.0', '~2.0.0'];
+        yield 'upgrade 4 bits tilde' => ['~2.2.3.1', '2.2.4', '~2.2.4.0'];
+        yield 'upgrade 4 bits tilde/2' => ['~2.2.3.1', '2.2.4.0', '~2.2.4.0'];
+        yield 'upgrade 4 bits tilde/3' => ['~2.2.3.1', '2.2.4.5', '~2.2.4.5'];
         yield 'upgrade bigger-or-eq to latest' => ['>=3.0', '3.4.5', '>=3.4.5'];
+        yield 'upgrade bigger-or-eq to latest with v' => ['>=v3.0', '3.4.5', '>=3.4.5'];
         yield 'leave bigger-than untouched' => ['>2.2.3', '2.2.6', '>2.2.3'];
+        yield 'upgrade full wildcard to bigger-or-eq' => ['*', '1.2.3', '>=1.2.3'];
     }
 }

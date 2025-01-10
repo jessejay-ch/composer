@@ -15,7 +15,7 @@ namespace Composer\Test\Package\Archiver;
 use Composer\Package\Archiver\PharArchiver;
 use Composer\Util\Platform;
 
-class PharArchiverTest extends ArchiverTest
+class PharArchiverTest extends ArchiverTestCase
 {
     public function testTarArchive(): void
     {
@@ -27,7 +27,7 @@ class PharArchiverTest extends ArchiverTest
         // Test archive
         $archiver = new PharArchiver();
         $archiver->archive($package->getSourceUrl(), $target, 'tar', ['foo/bar', 'baz', '!/foo/bar/baz']);
-        $this->assertFileExists($target);
+        self::assertFileExists($target);
 
         $this->filesystem->removeDirectory(dirname($target));
     }
@@ -42,7 +42,7 @@ class PharArchiverTest extends ArchiverTest
         // Test archive
         $archiver = new PharArchiver();
         $archiver->archive($package->getSourceUrl(), $target, 'zip');
-        $this->assertFileExists($target);
+        self::assertFileExists($target);
 
         $this->filesystem->removeDirectory(dirname($target));
     }

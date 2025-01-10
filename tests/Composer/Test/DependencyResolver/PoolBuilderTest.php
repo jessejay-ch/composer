@@ -50,7 +50,10 @@ class PoolBuilderTest extends TestCase
         $stabilityFlags = !empty($root['stability-flags']) ? $root['stability-flags'] : [];
         $rootReferences = !empty($root['references']) ? $root['references'] : [];
         $stabilityFlags = array_map(static function ($stability): int {
-            return BasePackage::$stabilities[$stability];
+            if (!isset(BasePackage::STABILITIES[$stability])) {
+                throw new \LogicException('Invalid stability given: '.$stability);
+            }
+            return BasePackage::STABILITIES[$stability];
         }, $stabilityFlags);
 
         $parser = new VersionParser();
@@ -126,7 +129,7 @@ class PoolBuilderTest extends TestCase
             if (isset($requestData['allowTransitiveDeps']) && $requestData['allowTransitiveDeps']) {
                 $transitiveDeps = Request::UPDATE_LISTED_WITH_TRANSITIVE_DEPS;
             }
-            $request->setUpdateAllowList(array_flip($requestData['allowList']), $transitiveDeps);
+            $request->setUpdateAllowList($requestData['allowList'], $transitiveDeps);
         }
 
         foreach ($fixed as $fixedPackage) {
@@ -137,11 +140,15 @@ class PoolBuilderTest extends TestCase
 
         $result = $this->getPackageResultSet($pool, $packageIds);
 
-        $this->assertSame($expect, $result, 'Unoptimized pool does not match expected package set');
+        sort($expect);
+        sort($result);
+        self::assertSame($expect, $result, 'Unoptimized pool does not match expected package set');
 
         $optimizer = new PoolOptimizer(new DefaultPolicy());
         $result = $this->getPackageResultSet($optimizer->optimize($request, $pool), $packageIds);
-        $this->assertSame($expectOptimized, $result, 'Optimized pool does not match expected package set');
+        sort($expectOptimized);
+        sort($result);
+        self::assertSame($expectOptimized, $result, 'Optimized pool does not match expected package set');
 
         chdir($oldCwd);
     }

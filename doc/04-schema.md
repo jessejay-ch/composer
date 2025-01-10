@@ -35,7 +35,7 @@ separated by `/`. Examples:
 * igorw/event-source
 
 The name must be lowercase and consist of words separated by `-`, `.` or `_`.
-The complete name should match `^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]?|-{0,2})[a-z0-9]+)*$`.
+The complete name should match `^[a-z0-9]([_.-]?[a-z0-9]+)*/[a-z0-9](([_.]|-{1,2})?[a-z0-9]+)*$`.
 
 The `name` property is required for published packages (libraries).
 
@@ -91,7 +91,7 @@ Out of the box, Composer supports four types:
 - **library:** This is the default. It will copy the files to `vendor`.
 - **project:** This denotes a project rather than a library. For example
   application shells like the [Symfony standard edition](https://github.com/symfony/symfony-standard),
-  CMSs like the [SilverStripe installer](https://github.com/silverstripe/silverstripe-installer)
+  CMSs like the [Silverstripe installer](https://github.com/silverstripe/silverstripe-installer)
   or full fledged applications distributed as packages. This can for example
   be used by IDEs to provide listings of projects to initialize when creating
   a new workspace.
@@ -102,6 +102,9 @@ Out of the box, Composer supports four types:
 - **composer-plugin:** A package of type `composer-plugin` may provide an
   installer for other packages that have a custom type. Read more in the
   [dedicated article](articles/custom-installers.md).
+- **php-ext** and **php-ext-zend**: These names are reserved for PHP extension
+  packages which are written in C. Do not use these types for packages written
+  in PHP.
 
 Only use a custom type if you need custom logic during installation. It is
 recommended to omit this field and have it default to `library`.
@@ -123,6 +126,11 @@ Examples:
 > `--dev` option to prompt users if they would like to add these packages to
 > `require-dev` instead of `require`. These are: `dev`, `testing`, `static analysis`.
 
+> **Note**: The range of characters allowed inside the string is restricted to
+> unicode letters or numbers, space `" "`, dot `.`, underscore `_` and dash `-`. (Regex: `'{^[\p{N}\p{L} ._-]+$}u'`)
+> Using other characters will emit a warning when running `composer validate` and
+> will cause the package to fail updating on Packagist.org.
+
 Optional.
 
 ### homepage
@@ -133,7 +141,9 @@ Optional.
 
 ### readme
 
-A relative path to the readme document.
+A relative path to the readme document. Defaults to `README.md`.
+
+This is mainly useful for packages not on GitHub, as for GitHub packages Packagist.org will use the readme API to fetch the one detected by GitHub.
 
 Optional.
 
@@ -141,7 +151,7 @@ Optional.
 
 Release date of the version.
 
-Must be in `YYYY-MM-DD` or `YYYY-MM-DD HH:MM:SS` format.
+Must be in `YYYY-MM-DD` or `YYYY-MM-DD HH:MM:SS` format in UTC timezone.
 
 Optional.
 
@@ -248,6 +258,7 @@ Support information includes the following:
 * **docs:** URL to the documentation.
 * **rss:** URL to the RSS feed.
 * **chat:** URL to the chat channel.
+* **security:** URL to the vulnerability disclosure policy (VDP).
 
 An example:
 
@@ -447,7 +458,7 @@ that exact version, and not any other version, which would be incorrect.
 
 Map of packages that are provided by this package. This is mostly
 useful for implementations of common interfaces. A package could depend on
-some virtual package e.g. `psr/logger-implementation`, any library that implements
+some virtual package e.g. `psr/log-implementation`, any library that implements
 this logger interface would list it in `provide`. Implementors can then
 be [found on Packagist.org](https://packagist.org/providers/psr/log-implementation).
 
@@ -961,6 +972,23 @@ Use `"abandoned": "monolog/monolog"` to indicate this package is abandoned, and 
 the recommended alternative is `monolog/monolog`.
 
 Defaults to false.
+
+Optional.
+
+### _comment
+
+Top level key used as a place to store comments (it can be a string or array of strings).
+
+```json
+{
+    "_comment": [
+        "The package foo/bar was required for business logic",
+        "Remove package foo/baz when removing foo/bar"
+    ]
+}
+```
+
+Defaults to empty.
 
 Optional.
 

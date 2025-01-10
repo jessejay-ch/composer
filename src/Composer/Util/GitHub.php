@@ -61,7 +61,7 @@ class GitHub
         }
 
         // if available use token from git config
-        if (0 === $this->process->execute('git config github.accesstoken', $output)) {
+        if (0 === $this->process->execute(['git', 'config', 'github.accesstoken'], $output)) {
             $this->io->setAuthentication($originUrl, trim($output), 'x-oauth-basic');
 
             return true;
@@ -86,18 +86,20 @@ class GitHub
         }
 
         $note = 'Composer';
-        if ($this->config->get('github-expose-hostname') === true && 0 === $this->process->execute('hostname', $output)) {
+        if ($this->config->get('github-expose-hostname') === true && 0 === $this->process->execute(['hostname'], $output)) {
             $note .= ' on ' . trim($output);
         }
         $note .= ' ' . date('Y-m-d Hi');
 
         $url = 'https://'.$originUrl.'/settings/tokens/new?scopes=&description=' . str_replace('%20', '+', rawurlencode($note));
-        $this->io->writeError(sprintf('When working with _public_ GitHub repositories only, head to %s to retrieve a token.', $url));
+        $this->io->writeError('When working with _public_ GitHub repositories only, head here to retrieve a token:');
+        $this->io->writeError($url);
         $this->io->writeError('This token will have read-only permission for public information only.');
 
         $localAuthConfig = $this->config->getLocalAuthConfigSource();
         $url = 'https://'.$originUrl.'/settings/tokens/new?scopes=repo&description=' . str_replace('%20', '+', rawurlencode($note));
-        $this->io->writeError(sprintf('When you need to access _private_ GitHub repositories as well, go to %s', $url));
+        $this->io->writeError('When you need to access _private_ GitHub repositories as well, go to:');
+        $this->io->writeError($url);
         $this->io->writeError('Note that such tokens have broad read/write permissions on your behalf, even if not needed by Composer.');
         $this->io->writeError(sprintf('Tokens will be stored in plain text in "%s" for future use by Composer.', ($localAuthConfig !== null ? $localAuthConfig->getName() . ' OR ' : '') . $this->config->getAuthConfigSource()->getName()));
         $this->io->writeError('For additional information, check https://getcomposer.org/doc/articles/authentication-for-private-packages.md#github-oauth');
@@ -161,15 +163,15 @@ class GitHub
 
         foreach ($headers as $header) {
             $header = trim($header);
-            if (false === strpos($header, 'X-RateLimit-')) {
+            if (false === stripos($header, 'x-ratelimit-')) {
                 continue;
             }
             [$type, $value] = explode(':', $header, 2);
-            switch ($type) {
-                case 'X-RateLimit-Limit':
+            switch (strtolower($type)) {
+                case 'x-ratelimit-limit':
                     $rateLimit['limit'] = (int) trim($value);
                     break;
-                case 'X-RateLimit-Reset':
+                case 'x-ratelimit-reset':
                     $rateLimit['reset'] = date('Y-m-d H:i:s', (int) trim($value));
                     break;
             }
@@ -206,7 +208,7 @@ class GitHub
     public function isRateLimited(array $headers): bool
     {
         foreach ($headers as $header) {
-            if (Preg::isMatch('{^X-RateLimit-Remaining: *0$}i', trim($header))) {
+            if (Preg::isMatch('{^x-ratelimit-remaining: *0$}i', trim($header))) {
                 return true;
             }
         }
@@ -224,7 +226,7 @@ class GitHub
     public function requiresSso(array $headers): bool
     {
         foreach ($headers as $header) {
-            if (Preg::isMatch('{^X-GitHub-SSO: required}i', trim($header))) {
+            if (Preg::isMatch('{^x-github-sso: required}i', trim($header))) {
                 return true;
             }
         }

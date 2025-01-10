@@ -15,6 +15,8 @@ namespace Composer\Package\Archiver;
 use Composer\Pcre\Preg;
 use Composer\Util\Filesystem;
 use FilesystemIterator;
+use FilterIterator;
+use Iterator;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\SplFileInfo;
 
@@ -25,8 +27,9 @@ use Symfony\Component\Finder\SplFileInfo;
  * own exclude rules from composer.json
  *
  * @author Nils Adermann <naderman@naderman.de>
+ * @phpstan-extends FilterIterator<string, SplFileInfo, Iterator<string, SplFileInfo>>
  */
-class ArchivableFilesFinder extends \FilterIterator
+class ArchivableFilesFinder extends FilterIterator
 {
     /**
      * @var Finder
@@ -44,7 +47,11 @@ class ArchivableFilesFinder extends \FilterIterator
     {
         $fs = new Filesystem();
 
-        $sources = $fs->normalizePath(realpath($sources));
+        $sourcesRealPath = realpath($sources);
+        if ($sourcesRealPath === false) {
+            throw new \RuntimeException('Could not realpath() the source directory "'.$sources.'"');
+        }
+        $sources = $fs->normalizePath($sourcesRealPath);
 
         if ($ignoreFilters) {
             $filters = [];
@@ -58,14 +65,18 @@ class ArchivableFilesFinder extends \FilterIterator
         $this->finder = new Finder();
 
         $filter = static function (\SplFileInfo $file) use ($sources, $filters, $fs): bool {
-            if ($file->isLink() && ($file->getRealPath() === false || strpos($file->getRealPath(), $sources) !== 0)) {
+            $realpath = $file->getRealPath();
+            if ($realpath === false) {
+                return false;
+            }
+            if ($file->isLink() && strpos($realpath, $sources) !== 0) {
                 return false;
             }
 
             $relativePath = Preg::replace(
                 '#^'.preg_quote($sources, '#').'#',
                 '',
-                $fs->normalizePath($file->getRealPath())
+                $fs->normalizePath($realpath)
             );
 
             $exclude = false;
@@ -75,10 +86,6 @@ class ArchivableFilesFinder extends \FilterIterator
 
             return !$exclude;
         };
-
-        if (method_exists($filter, 'bindTo')) {
-            $filter = $filter->bindTo(null);
-        }
 
         $this->finder
             ->in($sources)

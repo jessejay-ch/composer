@@ -74,7 +74,7 @@ php composer.phar init
 * **--repository:** Provide one (or more) custom repositories. They will be stored
   in the generated composer.json, and used for auto-completion when prompting for
   the list of requires. Every repository can be either an HTTP URL pointing
-  to a `composer` repository or a JSON string which similar to what the
+  to a `composer` repository or a JSON string which is similar to what the
   [repositories](04-schema.md#repositories) key accepts.
 * **--autoload (-a):** Add a PSR-4 autoload mapping to the composer.json. Automatically maps your package's namespace to the provided directory. (Expects a relative path, e.g. src/) See also [PSR-4 autoload](04-schema.md#psr-4).
 
@@ -198,8 +198,9 @@ php composer.phar update vendor/package:2.0.1 vendor/package2:3.0.*
 * **--no-install:** Does not run the install step after updating the composer.lock file.
 * **--no-audit:** Does not run the audit steps after updating the composer.lock file. Also see [COMPOSER_NO_AUDIT](#composer-no-audit).
 * **--audit-format:** Audit output format. Must be "table", "plain", "json", or "summary" (default).
-* **--lock:** Only updates the lock file hash to suppress warning about the
-  lock file being out of date.
+* **--lock:** Overwrites the lock file hash to suppress warning about the lock file being out of
+  date without updating package versions. Package metadata like mirrors and URLs are updated if
+  they changed.
 * **--with:** Temporary version constraint to add, e.g. foo/bar:1.0.0 or foo/bar=1.0.0
 * **--no-autoloader:** Skips autoloader generation.
 * **--no-progress:** Removes the progress display that can mess with some
@@ -229,8 +230,12 @@ php composer.phar update vendor/package:2.0.1 vendor/package2:3.0.*
 * **--prefer-lowest:** Prefer lowest versions of dependencies. Useful for testing minimal
   versions of requirements, generally used with `--prefer-stable`. Can also be set via the
   COMPOSER_PREFER_LOWEST=1 env var.
+* **--minimal-changes (-m):** During a partial update with `-w`/`-W`, only perform absolutely necessary
+  changes to transitive dependencies. Can also be set via the COMPOSER_MINIMAL_CHANGES=1 env var.
+* **--patch-only:** Only allow patch version updates for currently installed dependencies.
 * **--interactive:** Interactive interface with autocompletion to select the packages to update.
 * **--root-reqs:** Restricts the update to your first degree dependencies.
+* **--bump-after-update:** Runs `bump` after performing the update. Set to `dev` or `no-dev` to only bump those dependencies.
 
 Specifying one of the words `mirrors`, `lock`, or `nothing` as an argument has the same effect as specifying the option `--lock`, for example `composer update mirrors` is exactly the same as `composer update --lock`.
 
@@ -238,6 +243,9 @@ Specifying one of the words `mirrors`, `lock`, or `nothing` as an argument has t
 
 The `require` command adds new packages to the `composer.json` file from
 the current directory. If no file exists one will be created on the fly.
+
+If you do not specify a package, Composer will prompt you to search for a package, and given
+results, provide a list of matches to require.
 
 ```shell
 php composer.phar require
@@ -253,7 +261,14 @@ to the command.
 php composer.phar require "vendor/package:2.*" vendor/package2:dev-master
 ```
 
-If you do not specify a package, Composer will prompt you to search for a package, and given results, provide a list of  matches to require.
+If you do not specify a version constraint, composer will choose a suitable one based
+on the available package versions.
+
+```shell
+php composer.phar require vendor/package vendor/package2
+```
+
+If you do not want to install the new dependencies immediately you can call it with --no-update
 
 ### Options
 
@@ -288,6 +303,8 @@ If you do not specify a package, Composer will prompt you to search for a packag
 * **--prefer-lowest:** Prefer lowest versions of dependencies. Useful for testing minimal
   versions of requirements, generally used with `--prefer-stable`. Can also be set via the
   COMPOSER_PREFER_LOWEST=1 env var.
+* **--minimal-changes (-m):** During an update with `-w`/`-W`, only perform absolutely necessary
+  changes to transitive dependencies. Can also be set via the COMPOSER_MINIMAL_CHANGES=1 env var.
 * **--sort-packages:** Keep packages sorted in `composer.json`.
 * **--optimize-autoloader (-o):** Convert PSR-0/4 autoloading to classmap to
   get a faster autoloader. This is recommended especially for production, but
@@ -298,7 +315,7 @@ If you do not specify a package, Composer will prompt you to search for a packag
 * **--apcu-autoloader-prefix:** Use a custom prefix for the APCu autoloader cache.
   Implicitly enables `--apcu-autoloader`.
 
-## remove
+## remove / rm / uninstall
 
 The `remove` command removes packages from the `composer.json` file from
 the current directory.
@@ -311,6 +328,8 @@ After removing the requirements, the modified requirements will be
 uninstalled.
 
 ### Options
+
+* **--unused** Remove unused packages that are not a direct or indirect dependency (anymore)
 * **--dev:** Remove packages from `require-dev`.
 * **--dry-run:** Simulate the command without actually doing anything.
 * **--no-progress:** Removes the progress display that can mess with some
@@ -324,6 +343,8 @@ uninstalled.
   (Deprecated, is now default behavior)
 * **--update-with-all-dependencies (-W):** Allows all inherited dependencies to be updated,
   including those that are root requirements.
+* **--minimal-changes (-m):** During an update with `-w`/`-W`, only perform absolutely necessary
+  changes to transitive dependencies. Can also be set via the COMPOSER_MINIMAL_CHANGES=1 env var.
 * **--ignore-platform-reqs:** ignore all platform requirements (`php`, `hhvm`,
   `lib-*` and `ext-*`) and force the installation even if the local machine does
   not fulfill these.
@@ -543,11 +564,12 @@ php composer.phar show monolog/monolog 1.0.2
 * **--tree (-t):** List your dependencies as a tree. If you pass a package name it will show the dependency tree for that package.
 * **--latest (-l):** List all installed packages including their latest version.
 * **--outdated (-o):** Implies --latest, but this lists *only* packages that have a newer version available.
-* **--ignore:** Ignore specified package(s). Use it with the --outdated option if you don't want to be informed about new versions of some packages
+* **--ignore:** Ignore specified package(s). Can contain wildcards (`*`). Use it with the --outdated option if you don't want to be informed about new versions of some packages
 * **--no-dev:** Filters dev dependencies from the package list.
 * **--major-only (-M):** Use with --latest or --outdated. Only shows packages that have major SemVer-compatible updates.
 * **--minor-only (-m):** Use with --latest or --outdated. Only shows packages that have minor SemVer-compatible updates.
 * **--patch-only:** Use with --latest or --outdated. Only shows packages that have patch-level SemVer-compatible updates.
+* **--sort-by-age (-A):** Displays the installed version's age, and sorts packages oldest first. Use with the --latest or --outdated option.
 * **--direct (-D):** Restricts the list of packages to your direct dependencies.
 * **--strict:** Return a non-zero exit code when there are outdated packages.
 * **--format (-f):** Lets you pick between text (default) or json output format.
@@ -577,10 +599,11 @@ The color coding is as such:
 * **--all (-a):** Show all packages, not just outdated (alias for `composer show --latest`).
 * **--direct (-D):** Restricts the list of packages to your direct dependencies.
 * **--strict:** Returns non-zero exit code if any package is outdated.
-* **--ignore:** Ignore specified package(s). Use it if you don't want to be informed about new versions of some packages
+* **--ignore:** Ignore specified package(s). Can contain wildcards (`*`). Use it if you don't want to be informed about new versions of some packages
 * **--major-only (-M):** Only shows packages that have major SemVer-compatible updates.
 * **--minor-only (-m):** Only shows packages that have minor SemVer-compatible updates.
 * **--patch-only (-p):** Only shows packages that have patch-level SemVer-compatible updates.
+* **--sort-by-age (-A):** Displays the installed version's age, and sorts packages oldest first.
 * **--format (-f):** Lets you pick between text (default) or json output format.
 * **--no-dev:** Do not show outdated dev dependencies.
 * **--locked:** Shows updates for packages from the lock file, regardless of what is currently in vendor dir.
@@ -706,8 +729,10 @@ packages depending on the packages that cause the conflict.
 ## validate
 
 You should always run the `validate` command before you commit your
-`composer.json` file, and before you tag a release. It will check if your
-`composer.json` is valid.
+`composer.json` file (and `composer.lock` [if applicable](01-basic-usage.md#commit-your-composer-lock-file-to-version-control)), and before you tag a release.
+
+It will check if your
+`composer.json` is valid. If a `composer.lock` exists, it will also check if it is up to date with the `composer.json`.
 
 ```shell
 php composer.phar validate
@@ -717,7 +742,9 @@ php composer.phar validate
 
 * **--no-check-all:** Do not emit a warning if requirements in `composer.json` use unbound or overly strict version constraints.
 * **--no-check-lock:** Do not emit an error if `composer.lock` exists and is not up to date.
+* **--check-lock** Check if lock file is up to date (even when [config.lock](06-config.md#lock) is false)
 * **--no-check-publish:** Do not emit an error if `composer.json` is unsuitable for publishing as a package on Packagist but is otherwise valid.
+* **--no-check-version:** Do not emit an error if the version field is present.
 * **--with-dependencies:** Also validate the composer.json of all installed dependencies.
 * **--strict:** Return a non-zero exit code for warnings as well as errors.
 
@@ -956,6 +983,7 @@ performance.
 * **--apcu:** Use APCu to cache found/not-found classes.
 * **--apcu-prefix:** Use a custom prefix for the APCu autoloader cache.
   Implicitly enables `--apcu`.
+* **--dry-run:** Outputs the operations but will not execute anything.
 * **--no-dev:** Disables autoload-dev rules. Composer will by default infer this
   automatically according to the last `install` or `update` `--no-dev` state.
 * **--dev:** Enables autoload-dev rules. Composer will by default infer this
@@ -966,8 +994,10 @@ performance.
 * **--ignore-platform-req:** ignore a specific platform requirement (`php`, `hhvm`,
   `lib-*` and `ext-*`) and skip the [platform check](07-runtime.md#platform-check) for it.
   Multiple requirements can be ignored via wildcard.
-* **--strict-psr:** Return a failed status code (1) if PSR-4 or PSR-0 mapping errors
+* **--strict-psr:** Return a failed exit code (1) if PSR-4 or PSR-0 mapping errors
   are present. Requires --optimize to work.
+* **--strict-ambiguous:** Return a failed exit code (2) if the same class is found
+  in multiple files. Requires --optimize to work.
 
 ## clear-cache / clearcache / cc
 
@@ -1038,12 +1068,18 @@ php composer.phar archive vendor/package 2.0.21 --format=zip
 
 ## audit
 
-This command is used to audit the packages you have installed
-for possible security issues. It checks for and
-lists security vulnerability advisories according to the
-[Packagist.org api](https://packagist.org/apidoc#list-security-advisories).
+This command is used to audit the packages you have installed for potential security issues. It checks for and lists security
+vulnerability advisories using the [Packagist.org api](https://packagist.org/apidoc#list-security-advisories) by default
+or other repositories if specified in the `repositories` section of `composer.json`.
+The command also detects abandoned packages.
 
-The audit command returns the amount of vulnerabilities found. `0` if successful, and up to `255` otherwise.
+The audit command determines if there are vulnerable or abandoned packages and returns the following exit codes based on
+the findings:
+
+* `0` No issues;
+* `1` Vulnerable packages;
+* `2` Abandoned packages;
+* `3` Vulnerable and abandoned packages.
 
 ```shell
 php composer.phar audit
@@ -1054,6 +1090,11 @@ php composer.phar audit
 * **--no-dev:** Disables auditing of require-dev packages.
 * **--format (-f):** Audit output format. Must be "table" (default), "plain", "json", or "summary".
 * **--locked:** Audit packages from the lock file, regardless of what is currently in vendor dir.
+* **--abandoned:** Behavior on abandoned packages. Must be "ignore", "report",
+  or "fail".  See also [audit.abandoned](06-config.md#abandoned).  Passing this
+  flag will override the config value and the environment variable.
+* **--ignore-severity:** Ignore advisories of a certain severity level. Can be passed one or more
+  time to ignore multiple severities.
 
 ## help
 
@@ -1065,8 +1106,8 @@ php composer.phar help install
 
 ## Command-line completion
 
-Command-line completion can be enabled by following instructions
-[on this page](https://github.com/bamarni/symfony-console-autocomplete).
+Command-line completion can be enabled by running the `composer completion --help` command and
+following the instructions.
 
 ## Environment variables
 
@@ -1134,6 +1175,10 @@ If set to 1, this env suppresses a warning when Composer is running with the Xde
 ### COMPOSER_DISCARD_CHANGES
 
 This env var controls the [`discard-changes`](06-config.md#discard-changes) config option.
+
+### COMPOSER_FUND
+
+If set to 0, this env suppresses funding notices when installing.
 
 ### COMPOSER_HOME
 
@@ -1207,20 +1252,17 @@ environment variable if you use Vagrant or VirtualBox and experience issues with
 being found during installation even though they should be present.
 
 ### http_proxy or HTTP_PROXY
+### HTTP_PROXY_REQUEST_FULLURI
+### HTTPS_PROXY_REQUEST_FULLURI
+### no_proxy or NO_PROXY
 
-If you are using Composer from behind an HTTP proxy, you can use the standard
-`http_proxy` or `HTTP_PROXY` env vars. Set it to the URL of your proxy.
-Many operating systems already set this variable for you.
+See the [proxy documentation](faqs/how-to-use-composer-behind-a-proxy.md) for more details
+on how to use proxy env vars.
 
-Using `http_proxy` (lowercased) or even defining both might be preferable since
-some tools like git or curl will only use the lower-cased `http_proxy` version.
-Alternatively you can also define the git proxy using
-`git config --global http.proxy <proxy url>`.
+### COMPOSER_AUDIT_ABANDONED
 
-If you are using Composer in a non-CLI context (i.e. integration into a CMS or
-similar use case), and need to support proxies, please provide the `CGI_HTTP_PROXY`
-environment variable instead. See [httpoxy.org](https://httpoxy.org/) for further
-details.
+Set to `ignore`, `report` or `fail` to override the [audit.abandoned](06-config.md#abandoned)
+config option.
 
 ### COMPOSER_MAX_PARALLEL_HTTP
 
@@ -1229,31 +1271,14 @@ defaults to 12 and must be between 1 and 50. If your proxy has issues with
 concurrency maybe you want to lower this. Increasing it should generally not result
 in performance gains.
 
-### HTTP_PROXY_REQUEST_FULLURI
+### COMPOSER_IPRESOLVE
 
-If you use a proxy, but it does not support the request_fulluri flag, then you
-should set this env var to `false` or `0` to prevent Composer from setting the
-request_fulluri option.
-
-### HTTPS_PROXY_REQUEST_FULLURI
-
-If you use a proxy, but it does not support the request_fulluri flag for HTTPS
-requests, then you should set this env var to `false` or `0` to prevent Composer
-from setting the request_fulluri option.
+Set to `4` or `6` to force IPv4 or IPv6 DNS resolution. This only works when the
+curl extension is used for downloads.
 
 ### COMPOSER_SELF_UPDATE_TARGET
 
 If set, makes the self-update command write the new Composer phar file into that path instead of overwriting itself. Useful for updating Composer on a read-only filesystem.
-
-### no_proxy or NO_PROXY
-
-If you are behind a proxy and would like to disable it for certain domains, you
-can use the `no_proxy` or `NO_PROXY` env var. Set it to a comma separated list of
-domains the proxy should *not* be used for.
-
-The env var accepts domains, IP addresses, and IP address blocks in CIDR
-notation. You can restrict the filter to a particular port (e.g. `:80`). You
-can also set it to `*` to ignore the proxy for all HTTP requests.
 
 ### COMPOSER_DISABLE_NETWORK
 
@@ -1274,8 +1299,9 @@ If set to `1`, it is the equivalent of passing the `--no-audit` option to `requi
 
 ### COMPOSER_NO_DEV
 
-If set to `1`, it is the equivalent of passing the `--no-dev` option to `install` or
-`update`. You can override this for a single command by setting `COMPOSER_NO_DEV=0`.
+If set to `1`, it is the equivalent of passing the `--update-no-dev` option to `require`
+ or the `--no-dev` option to `install` or `update`.  You can override this for a single
+command by setting `COMPOSER_NO_DEV=0`.
 
 ### COMPOSER_PREFER_STABLE
 
@@ -1286,6 +1312,11 @@ If set to `1`, it is the equivalent of passing the `--prefer-stable` option to
 
 If set to `1`, it is the equivalent of passing the `--prefer-lowest` option to
 `update` or `require`.
+
+### COMPOSER_MINIMAL_CHANGES
+
+If set to `1`, it is the equivalent of passing the `--minimal-changes` option to
+`update`, `require` or `remove`.
 
 ### COMPOSER_IGNORE_PLATFORM_REQ or COMPOSER_IGNORE_PLATFORM_REQS
 

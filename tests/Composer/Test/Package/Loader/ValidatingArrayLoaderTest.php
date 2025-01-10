@@ -52,7 +52,7 @@ class ValidatingArrayLoaderTest extends TestCase
                     'keywords' => ['a', 'b_c', 'D E', 'éîüø', '微信'],
                     'homepage' => 'https://foo.com',
                     'time' => '2010-10-10T10:10:10+00:00',
-                    'license' => 'MIT',
+                    'license' => ['MIT', 'WTFPL'],
                     'authors' => [
                         [
                             'name' => 'Alice',
@@ -74,6 +74,7 @@ class ValidatingArrayLoaderTest extends TestCase
                         'irc' => 'irc://example.org/example',
                         'rss' => 'http://example.org/rss',
                         'chat' => 'http://example.org/chat',
+                        'security' => 'https://example.org/security',
                     ],
                     'funding' => [
                         [
@@ -164,12 +165,6 @@ class ValidatingArrayLoaderTest extends TestCase
                     'transport-options' => ['ssl' => ['local_cert' => '/opt/certs/test.pem']],
                 ],
             ],
-            [ // test licenses as array
-                [
-                    'name' => 'foo/bar',
-                    'license' => ['MIT', 'WTFPL'],
-                ],
-            ],
             [ // test bin as string
                 [
                     'name' => 'foo/bar',
@@ -223,7 +218,7 @@ class ValidatingArrayLoaderTest extends TestCase
             $errors = $e->getErrors();
             sort($expectedErrors);
             sort($errors);
-            $this->assertEquals($expectedErrors, $errors);
+            self::assertEquals($expectedErrors, $errors);
         }
     }
 
@@ -242,7 +237,7 @@ class ValidatingArrayLoaderTest extends TestCase
         $warnings = $loader->getWarnings();
         sort($expectedWarnings);
         sort($warnings);
-        $this->assertEquals($expectedWarnings, $warnings);
+        self::assertEquals($expectedWarnings, $warnings);
     }
 
     /**
@@ -250,11 +245,12 @@ class ValidatingArrayLoaderTest extends TestCase
      *
      * @param array<string, mixed> $config
      * @param string[]             $expectedWarnings
+     * @param array<string, mixed>|null $expectedArray
      */
-    public function testLoadSkipsWarningDataWhenIgnoringErrors(array $config, array $expectedWarnings, bool $mustCheck = true): void
+    public function testLoadSkipsWarningDataWhenIgnoringErrors(array $config, array $expectedWarnings, bool $mustCheck = true, ?array $expectedArray = null): void
     {
         if (!$mustCheck) {
-            $this->assertTrue(true);
+            self::assertTrue(true); // @phpstan-ignore staticMethod.alreadyNarrowedType
 
             return;
         }
@@ -262,7 +258,7 @@ class ValidatingArrayLoaderTest extends TestCase
         $internalLoader
             ->expects($this->once())
             ->method('load')
-            ->with(['name' => 'a/b']);
+            ->with($expectedArray ?? ['name' => 'a/b']);
 
         $loader = new ValidatingArrayLoader($internalLoader, true, null, ValidatingArrayLoader::CHECK_ALL);
         $config['name'] = 'a/b';
@@ -425,6 +421,12 @@ class ValidatingArrayLoaderTest extends TestCase
                 ],
                 ['replace.0 : invalid version constraint (Could not parse version constraint acme/bar: Invalid version string "acme/bar")'],
             ],
+            [
+                [
+                    'require' => ['acme/bar' => '^1.0']
+                ],
+                ['name : must be present'],
+            ]
         ]);
     }
 
@@ -449,6 +451,7 @@ class ValidatingArrayLoaderTest extends TestCase
                         'issues' => 'foo:bar',
                         'wiki' => 'foo:bar',
                         'chat' => 'foo:bar',
+                        'security' => 'foo:bar',
                     ],
                 ],
                 [
@@ -457,6 +460,7 @@ class ValidatingArrayLoaderTest extends TestCase
                     'support.issues : invalid value (foo:bar), must be an http/https URL',
                     'support.wiki : invalid value (foo:bar), must be an http/https URL',
                     'support.chat : invalid value (foo:bar), must be an http/https URL',
+                    'support.security : invalid value (foo:bar), must be an http/https URL',
                 ],
             ],
             [
@@ -474,6 +478,20 @@ class ValidatingArrayLoaderTest extends TestCase
                     'require.bar/baz : unbound version constraints (>=1.0) should be avoided',
                     'require.bar/hacked : unbound version constraints (@stable) should be avoided',
                     'require.bar/woo : exact version constraints (1.0.0) should be avoided if the package follows semantic versioning',
+                ],
+                false,
+            ],
+            [
+                [
+                    'name' => 'foo/bar',
+                    'require' => [
+                        'foo/baz' => '>1, <0.5',
+                        'bar/baz' => 'dev-main, >0.5',
+                    ],
+                ],
+                [
+                    'require.foo/baz : this version constraint cannot possibly match anything (>1, <0.5)',
+                    'require.bar/baz : this version constraint cannot possibly match anything (dev-main, >0.5)',
                 ],
                 false,
             ],
@@ -528,6 +546,35 @@ class ValidatingArrayLoaderTest extends TestCase
                     'require.Foo/Baz is invalid, it should not contain uppercase characters. Please use foo/baz instead.',
                 ],
                 false,
+            ],
+            [
+                [
+                    'name' => 'a/b',
+                    'license' => 'XXXXX',
+                ],
+                [
+                    'License "XXXXX" is not a valid SPDX license identifier, see https://spdx.org/licenses/ if you use an open license.'.PHP_EOL.
+                    'If the software is closed-source, you may use "proprietary" as license.',
+                ],
+                true,
+                [
+                    'name' => 'a/b',
+                    'license' => ['XXXXX'],
+                ]
+            ],
+            [
+                [
+                    'name' => 'a/b',
+                    'license' => [['author'=>'bar'], 'MIT'],
+                ],
+                [
+                    'License {"author":"bar"} should be a string.',
+                ],
+                true,
+                [
+                    'name' => 'a/b',
+                    'license' => ['MIT'],
+                ]
             ],
         ];
     }

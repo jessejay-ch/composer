@@ -59,6 +59,7 @@ class InstallerTest extends TestCase
     {
         parent::tearDown();
         Platform::clearEnv('COMPOSER_POOL_OPTIMIZER');
+        Platform::clearEnv('COMPOSER_FUND');
 
         chdir($this->prevCwd);
         if (isset($this->tempComposerHome) && is_dir($this->tempComposerHome)) {
@@ -102,9 +103,6 @@ class InstallerTest extends TestCase
         $repositoryManager = new RepositoryManager($io, $config, $httpDownloader, $eventDispatcher);
         $repositoryManager->setLocalRepository(new InstalledArrayRepository());
 
-        if (!is_array($repositories)) {
-            $repositories = [$repositories];
-        }
         foreach ($repositories as $repository) {
             $repositoryManager->addRepository($repository);
         }
@@ -140,20 +138,20 @@ class InstallerTest extends TestCase
         $result = $installer->run();
 
         $output = str_replace("\r", '', $io->getOutput());
-        $this->assertEquals(0, $result, $output);
+        self::assertEquals(0, $result, $output);
 
         $expectedInstalled = $options['install'] ?? [];
         $expectedUpdated = $options['update'] ?? [];
         $expectedUninstalled = $options['uninstall'] ?? [];
 
         $installed = $installationManager->getInstalledPackages();
-        $this->assertEquals($this->makePackagesComparable($expectedInstalled), $this->makePackagesComparable($installed));
+        self::assertEquals($this->makePackagesComparable($expectedInstalled), $this->makePackagesComparable($installed));
 
         $updated = $installationManager->getUpdatedPackages();
-        $this->assertSame($expectedUpdated, $updated);
+        self::assertSame($expectedUpdated, $updated);
 
         $uninstalled = $installationManager->getUninstalledPackages();
-        $this->assertSame($expectedUninstalled, $uninstalled);
+        self::assertSame($expectedUninstalled, $uninstalled);
     }
 
     /**
@@ -281,7 +279,7 @@ class InstallerTest extends TestCase
     {
         if ($condition) {
             eval('$res = '.$condition.';');
-            if (!$res) { // @phpstan-ignore-line
+            if (!$res) { // @phpstan-ignore variable.undefined
                 $this->markTestSkipped($condition);
             }
         }
@@ -384,6 +382,7 @@ class InstallerTest extends TestCase
         $update->addOption('lock', null, InputOption::VALUE_NONE);
         $update->addOption('with-all-dependencies', null, InputOption::VALUE_NONE);
         $update->addOption('with-dependencies', null, InputOption::VALUE_NONE);
+        $update->addOption('minimal-changes', null, InputOption::VALUE_NONE);
         $update->addOption('prefer-stable', null, InputOption::VALUE_NONE);
         $update->addOption('prefer-lowest', null, InputOption::VALUE_NONE);
         $update->addArgument('packages', InputArgument::IS_ARRAY | InputArgument::OPTIONAL);
@@ -415,7 +414,8 @@ class InstallerTest extends TestCase
                 ->setPreferStable($input->getOption('prefer-stable'))
                 ->setPreferLowest($input->getOption('prefer-lowest'))
                 ->setPlatformRequirementFilter(PlatformRequirementFilterFactory::fromBoolOrList($ignorePlatformReqs))
-                ->setAudit(false);
+                ->setAudit(false)
+                ->setMinimalUpdate($input->getOption('minimal-changes'));
 
             return $installer->run();
         });
@@ -441,10 +441,15 @@ class InstallerTest extends TestCase
         }
 
         $output = str_replace("\r", '', $io->getOutput());
-        $this->assertEquals($expectResult, $result, $output . stream_get_contents($appOutput));
+        self::assertEquals($expectResult, $result, $output . stream_get_contents($appOutput));
         if ($expectLock && isset($actualLock)) {
             unset($actualLock['hash'], $actualLock['content-hash'], $actualLock['_readme'], $actualLock['plugin-api-version']);
-            $this->assertEquals($expectLock, $actualLock);
+            foreach (['stability-flags', 'platform', 'platform-dev'] as $key) {
+                if ($expectLock[$key] === []) {
+                    $expectLock[$key] = new \stdClass;
+                }
+            }
+            self::assertEquals($expectLock, $actualLock);
         }
 
         if ($expectInstalled !== null) {
@@ -461,18 +466,18 @@ class InstallerTest extends TestCase
                 return strcmp($a['name'], $b['name']);
             });
 
-            $this->assertSame($expectInstalled, $actualInstalled);
+            self::assertSame($expectInstalled, $actualInstalled);
         }
 
         /** @var InstallationManagerMock $installationManager */
         $installationManager = $composer->getInstallationManager();
-        $this->assertSame(rtrim($expect), implode("\n", $installationManager->getTrace()));
+        self::assertSame(rtrim($expect), implode("\n", $installationManager->getTrace()));
 
         if ($expectOutput) {
             $output = Preg::replace('{^    - .*?\.ini$}m', '__inilist__', $output);
             $output = Preg::replace('{(__inilist__\r?\n)+}', "__inilist__\n", $output);
 
-            $this->assertStringMatchesFormat(rtrim($expectOutput), rtrim($output));
+            self::assertStringMatchesFormat(rtrim($expectOutput), rtrim($output));
         }
     }
 
@@ -533,7 +538,7 @@ class InstallerTest extends TestCase
                 if (!empty($testData['LOCK'])) {
                     $lock = JsonFile::parseJson($testData['LOCK']);
                     if (!isset($lock['hash'])) {
-                        $lock['hash'] = md5(JsonFile::encode($composer, 0));
+                        $lock['hash'] = hash('md5', JsonFile::encode($composer, 0));
                     }
                 }
                 if (!empty($testData['INSTALLED'])) {

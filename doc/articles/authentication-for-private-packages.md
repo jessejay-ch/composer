@@ -28,8 +28,8 @@ for credentials and save them (or a token if Composer is able to retrieve one).
 Sometimes automatic authentication is not possible, or you may want to predefine
 authentication credentials.
 
-Credentials can be stored on 3 different places; in an `auth.json` for the project, a global
-`auth.json` or in the `composer.json` itself.
+Credentials can be stored on 4 different places; in an `auth.json` for the project, a global
+`auth.json`, in the `composer.json` itself or in the `COMPOSER_AUTH` environment variable.
 
 ## Authentication in auth.json per project
 
@@ -155,7 +155,7 @@ If the username e.g. is an email address it needs to be passed as `name%40exampl
 ### Command line inline http-basic
 
 ```shell
-php composer.phar config [--global] repositories composer.unique-name https://username:password@repo.example.org
+php composer.phar config [--global] repositories.unique-name composer https://username:password@repo.example.org
 ```
 
 ### Manual inline http-basic
@@ -232,7 +232,7 @@ php composer.phar config [--global] --editor
 ## gitlab-oauth
 
 > **Note:** For the gitlab authentication to work on private gitlab instances, the
-> [`gitlab-domains`](../06-config.md#gitlab-domains) section should also contain the url.
+> [`gitlab-domains`](../06-config.md#gitlab-domains) section should also contain the URL.
 
 ### Command line gitlab-oauth
 
@@ -262,9 +262,9 @@ php composer.phar config [--global] --editor --auth
 ## gitlab-token
 
 > **Note:** For the gitlab authentication to work on private gitlab instances, the
-> [`gitlab-domains`](../06-config.md#gitlab-domains) section should also contain the url.
+> [`gitlab-domains`](../06-config.md#gitlab-domains) section should also contain the URL.
 
-To create a new access token, go to your [access tokens section on GitLab](https://gitlab.com/-/profile/personal_access_tokens)
+To create a new access token, go to your [access tokens section on GitLab](https://gitlab.com/-/user_settings/personal_access_tokens)
 (or the equivalent URL on your private instance) and create a new token. See also [the GitLab access token documentation](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html#creating-a-personal-access-token) for more information.
 
 When creating a gitlab token manually, make sure it has either the `read_api` or `api` scope.
@@ -296,7 +296,7 @@ php composer.phar config [--global] --editor --auth
 
 ## github-oauth
 
-To create a new access token, head to your [token settings section on Github](https://github.com/settings/tokens) and [generate a new token](https://github.com/settings/tokens/new).
+To create a new access token, head to your [token settings section on GitHub](https://github.com/settings/tokens) and [generate a new token](https://github.com/settings/tokens/new).
 
 For public repositories when rate limited, a token *without* any particular scope is sufficient (see `(no scope)` in the [scopes documentation](https://docs.github.com/en/developers/apps/building-oauth-apps/scopes-for-oauth-apps)). Such tokens grant read-only access to public information.
 
@@ -331,7 +331,7 @@ php composer.phar config [--global] --editor --auth
 
 ## bitbucket-oauth
 
-The BitBucket driver uses OAuth to access your private repositories via the BitBucket REST APIs, and you will need to create an OAuth consumer to use the driver, please refer to [Atlassian's Documentation](https://support.atlassian.com/bitbucket-cloud/docs/use-oauth-on-bitbucket-cloud/). You will need to fill the callback url with something to satisfy BitBucket, but the address does not need to go anywhere and is not used by Composer.
+The BitBucket driver uses OAuth to access your private repositories via the BitBucket REST APIs, and you will need to create an OAuth consumer to use the driver, please refer to [Atlassian's Documentation](https://support.atlassian.com/bitbucket-cloud/docs/use-oauth-on-bitbucket-cloud/). You will need to fill the callback URL with something to satisfy BitBucket, but the address does not need to go anywhere and is not used by Composer.
 
 ### Command line bitbucket-oauth
 

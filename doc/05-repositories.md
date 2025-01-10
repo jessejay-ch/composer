@@ -16,7 +16,7 @@ code, but in theory it could be anything. And it contains a package
 description which has a name and a version. The name and the version are used
 to identify the package.
 
-In fact, internally Composer sees every version as a separate package. While
+In fact, internally, Composer sees every version as a separate package. While
 this distinction does not matter when you are using Composer, it's quite
 important when you want to change it.
 
@@ -225,7 +225,7 @@ This field is optional.
 #### list
 
 The `list` field allows you to return the names of packages which match a
-given field (or all names if no filter is present). It should accept an
+given filter (or all names if no filter is present). It should accept an
 optional `?filter=xx` query param, which can contain `*` as wildcards matching
 any substring.
 
@@ -548,6 +548,14 @@ Here is an example for the smarty template engine:
 
 Typically, you would leave the source part off, as you don't really need it.
 
+If a source key is included, the reference field should be a reference to the version that will be installed.
+Where the type field is `git`, this will the be the commit id, branch or tag name.
+
+> **Note**: It is not recommended to use a git branch name for the reference field. While this is valid since it is supported by `git checkout`,
+> branch names are mutable so cannot be locked.
+
+Where the type field is `svn`, the reference field should contain the reference that gets appended to the URL when running `svn co`.
+
 > **Note**: This repository type has a few limitations and should be avoided
 > whenever possible:
 >
@@ -738,7 +746,7 @@ monolithic repository.
     "repositories": [
         {
             "type": "path",
-            "url": "../../packages/my-package",
+            "url": "../../packages/*",
             "options": {
                 "symlink": false
             }
@@ -772,7 +780,7 @@ The following modes exist:
     "repositories": [
         {
             "type": "path",
-            "url": "../../packages/my-package",
+            "url": "../../packages/*",
             "options": {
                 "reference": "config"
             }

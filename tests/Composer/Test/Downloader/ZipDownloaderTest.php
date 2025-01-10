@@ -65,11 +65,7 @@ class ZipDownloaderTest extends TestCase
         $reflectionClass = new \ReflectionClass('Composer\Downloader\ZipDownloader');
         $reflectedProperty = $reflectionClass->getProperty($name);
         $reflectedProperty->setAccessible(true);
-        if ($obj === null) {
-            $reflectedProperty->setValue($value);
-        } else {
-            $reflectedProperty->setValue($obj, $value);
-        }
+        $reflectedProperty->setValue($obj, $value);
     }
 
     public function testErrorMessages(): void
@@ -106,7 +102,7 @@ class ZipDownloaderTest extends TestCase
 
             $this->fail('Download of invalid zip files should throw an exception');
         } catch (\Exception $e) {
-            $this->assertStringContainsString('is not a zip archive', $e->getMessage());
+            self::assertStringContainsString('is not a zip archive', $e->getMessage());
         }
     }
 
@@ -171,6 +167,9 @@ class ZipDownloaderTest extends TestCase
         $zipArchive->expects($this->once())
             ->method('extractTo')
             ->will($this->returnValue(true));
+        $zipArchive->expects($this->once())
+            ->method('count')
+            ->will($this->returnValue(0));
 
         $this->setPrivateProperty('zipArchiveObject', $zipArchive, $downloader);
         $promise = $downloader->extract($this->package, $this->filename, 'vendor/dir');
@@ -265,6 +264,9 @@ class ZipDownloaderTest extends TestCase
         $zipArchive->expects($this->once())
             ->method('extractTo')
             ->will($this->returnValue(true));
+        $zipArchive->expects($this->once())
+            ->method('count')
+            ->will($this->returnValue(0));
 
         $downloader = new MockedZipDownloader($this->io, $this->config, $this->httpDownloader, null, null, null, $processExecutor);
         $this->setPrivateProperty('zipArchiveObject', $zipArchive, $downloader);
@@ -314,7 +316,7 @@ class ZipDownloaderTest extends TestCase
     }
 
     /**
-     * @param ?\React\Promise\PromiseInterface $promise
+     * @param ?\React\Promise\PromiseInterface<mixed> $promise
      */
     private function wait($promise): void
     {
@@ -329,7 +331,7 @@ class ZipDownloaderTest extends TestCase
             $e = $ex;
         });
 
-        if ($e) {
+        if ($e !== null) {
             throw $e;
         }
     }

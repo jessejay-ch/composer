@@ -34,7 +34,7 @@ class ClassLoaderTest extends TestCase
         $loader->add('Pearlike_', __DIR__ . '/Fixtures');
         $loader->addPsr4('ShinyVendor\\ShinyPackage\\', __DIR__ . '/Fixtures');
         $loader->loadClass($class);
-        $this->assertTrue(class_exists($class, false), "->loadClass() loads '$class'");
+        self::assertTrue(class_exists($class, false), "->loadClass() loads '$class'");
     }
 
     /**
@@ -57,6 +57,29 @@ class ClassLoaderTest extends TestCase
     public function testGetPrefixesWithNoPSR0Configuration(): void
     {
         $loader = new ClassLoader();
-        $this->assertEmpty($loader->getPrefixes());
+        self::assertEmpty($loader->getPrefixes());
+    }
+
+    public function testSerializability(): void
+    {
+        $loader = new ClassLoader();
+        $loader->add('Pearlike_', __DIR__ . '/Fixtures');
+        $loader->add('', __DIR__ . '/FALLBACK');
+        $loader->addPsr4('ShinyVendor\\ShinyPackage\\', __DIR__ . '/Fixtures');
+        $loader->addPsr4('', __DIR__ . '/FALLBACKPSR4');
+        $loader->addClassMap(['A' => '', 'B' => 'path']);
+        $loader->setApcuPrefix('prefix');
+        $loader->setClassMapAuthoritative(true);
+        $loader->setUseIncludePath(true);
+
+        $loader2 = unserialize(serialize($loader));
+        self::assertInstanceOf(ClassLoader::class, $loader2);
+        self::assertSame($loader->getApcuPrefix(), $loader2->getApcuPrefix());
+        self::assertSame($loader->getClassMap(), $loader2->getClassMap());
+        self::assertSame($loader->getFallbackDirs(), $loader2->getFallbackDirs());
+        self::assertSame($loader->getFallbackDirsPsr4(), $loader2->getFallbackDirsPsr4());
+        self::assertSame($loader->getPrefixes(), $loader2->getPrefixes());
+        self::assertSame($loader->getPrefixesPsr4(), $loader2->getPrefixesPsr4());
+        self::assertSame($loader->getUseIncludePath(), $loader2->getUseIncludePath());
     }
 }

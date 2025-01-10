@@ -30,6 +30,7 @@ use PHPStan\Type\MixedType;
 use PHPStan\Type\StringType;
 use PHPStan\Type\Type;
 use PHPStan\Type\TypeCombinator;
+use PHPStan\Type\TypeUtils;
 use PHPStan\Type\UnionType;
 
 final class ConfigReturnTypeExtension implements DynamicMethodReturnTypeExtension
@@ -39,7 +40,7 @@ final class ConfigReturnTypeExtension implements DynamicMethodReturnTypeExtensio
 
     public function __construct()
     {
-        $schema = JsonFile::parseJson((string) file_get_contents(__DIR__.'/../../../res/composer-schema.json'));
+        $schema = JsonFile::parseJson((string) file_get_contents(JsonFile::COMPOSER_SCHEMA_PATH));
         /**
          * @var string $prop
          */
@@ -60,22 +61,34 @@ final class ConfigReturnTypeExtension implements DynamicMethodReturnTypeExtensio
         return strtolower($methodReflection->getName()) === 'get';
     }
 
-    public function getTypeFromMethodCall(MethodReflection $methodReflection, MethodCall $methodCall, Scope $scope): Type
+    public function getTypeFromMethodCall(MethodReflection $methodReflection, MethodCall $methodCall, Scope $scope): ?Type
     {
         $args = $methodCall->getArgs();
 
         if (count($args) < 1) {
-            return ParametersAcceptorSelector::selectSingle($methodReflection->getVariants())->getReturnType();
+            return null;
         }
 
         $keyType = $scope->getType($args[0]->value);
-        if ($keyType instanceof ConstantStringType) {
-            if (isset($this->properties[$keyType->getValue()])) {
-                return $this->properties[$keyType->getValue()];
+        if (method_exists($keyType, 'getConstantStrings')) { // @phpstan-ignore function.alreadyNarrowedType (- depending on PHPStan version, this method will always exist, or not.)
+            $strings = $keyType->getConstantStrings();
+        } else {
+            // for compat with old phpstan versions, we use a deprecated phpstan method.
+            $strings = TypeUtils::getConstantStrings($keyType); // @phpstan-ignore staticMethod.deprecated (ignore deprecation)
+        }
+        if ($strings !== []) {
+            $types = [];
+            foreach($strings as $string) {
+                if (!isset($this->properties[$string->getValue()])) {
+                    return null;
+                }
+                $types[] = $this->properties[$string->getValue()];
             }
+
+            return TypeCombinator::union(...$types);
         }
 
-        return ParametersAcceptorSelector::selectSingle($methodReflection->getVariants())->getReturnType();
+        return null;
     }
 
     /**

@@ -6,9 +6,21 @@ This chapter will describe the `config` section of the `composer.json`
 ## process-timeout
 
 The timeout in seconds for process executions, defaults to 300 (5mins).
-The duration processes like git clones can run before
+The duration processes like `git clone`s can run before
 Composer assumes they died out. You may need to make this higher if you have a
 slow connection or huge vendors.
+
+Example:
+
+```json
+{
+    "config": {
+        "process-timeout": 900
+    }
+}
+```
+
+### Disabling timeouts for an individual script command
 
 To disable the process timeout on a custom command under `scripts`, a static
 helper is available:
@@ -100,6 +112,65 @@ optionally be an object with package name patterns for keys for more granular in
 > more relaxed patterns. When mixing the string notation with the hash
 > configuration in global and package configurations the string notation
 > is translated to a `*` package pattern.
+
+## audit
+
+Security audit configuration options
+
+### ignore
+
+A list of advisory ids, remote ids or CVE ids that are reported but let the audit command pass.
+
+```json
+{
+    "config": {
+        "audit": {
+            "ignore": {
+                "CVE-1234": "The affected component is not in use.",
+                "GHSA-xx": "The security fix was applied as a patch.",
+                "PKSA-yy": "Due to mitigations in place the update can be delayed."
+            }
+        }
+    }
+}
+```
+
+or
+
+```json
+{
+    "config": {
+        "audit": {
+            "ignore": ["CVE-1234", "GHSA-xx", "PKSA-yy"]
+        }
+    }
+}
+```
+
+### abandoned
+
+Defaults to `report` in Composer 2.6, and defaults to `fail` from Composer 2.7 on. Defines whether the audit command reports abandoned packages or not, this has three possible values:
+
+- `ignore` means the audit command does not consider abandoned packages at all.
+- `report` means abandoned packages are reported as an error but do not cause the command to exit with a non-zero code.
+- `fail` means abandoned packages will cause audits to fail with a non-zero code.
+
+```json
+{
+    "config": {
+        "audit": {
+            "abandoned": "report"
+        }
+    }
+}
+```
+
+Since Composer 2.7, the option can be overridden via the [`COMPOSER_AUDIT_ABANDONED`](03-cli.md#composer-audit-abandoned) environment variable.
+
+Since Composer 2.8, the option can be overridden via the
+[`--abandoned`](03-cli.md#audit) command line option, which overrides both the
+config value and the environment variable.
+
 
 ## use-parent-dir
 
@@ -323,8 +394,10 @@ with other autoloaders.
 
 ## autoloader-suffix
 
-Defaults to `null`. Non-empty string to be used as a suffix for the generated
-Composer autoloader. When null a random one will be generated.
+Defaults to `null`. When set to a non-empty string, this value will be used as a
+suffix for the generated Composer autoloader. If set to `null`, the
+`content-hash` value from the `composer.lock` file will be used if available;
+otherwise, a random suffix will be generated.
 
 ## optimize-autoloader
 
@@ -419,5 +492,17 @@ Subversion/SVN transport. By default svn:// protocol is seen as insecure and wil
 throw, but you can set this config option to `["example.org"]` to allow using svn
 URLs on that hostname. This is a better/safer alternative to disabling `secure-http`
 altogether.
+
+## bump-after-update
+
+Defaults to `false` and can be any of `true`, `false`, `"dev"` or `"no-dev"`. If
+set to true, Composer will run the `bump` command after running the `update` command.
+If set to `"dev"` or `"no-dev"` then only the corresponding dependencies will be bumped.
+
+## allow-missing-requirements
+
+Defaults to `false`. Ignores error during `install` if there are any missing
+requirements - the lock file is not up to date with the latest changes in
+`composer.json`.
 
 &larr; [Repositories](05-repositories.md)  |  [Runtime](07-runtime.md) &rarr;

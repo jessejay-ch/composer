@@ -39,7 +39,7 @@ requirements:
 The required version of the `composer-plugin-api` follows the same [rules][7]
 as a normal package's rules.
 
-The current Composer plugin API version is `2.3.0`.
+The current Composer plugin API version is `2.6.0`.
 
 An example of a valid plugin `composer.json` file (with the autoloading
 part omitted and an optional require-dev dependency on `composer/composer` for IDE auto completion):
@@ -271,6 +271,8 @@ class Command extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $output->writeln('Executing');
+
+        return 0;
     }
 }
 ```
@@ -283,6 +285,10 @@ Now the `custom-plugin-command` is available alongside Composer commands.
 
 Plugins for an event can be run manually by the `run-script` command. This works the same way as
 [running scripts manually](scripts.md#running-scripts-manually).
+
+If it is another type of plugin the best way to test it is probably using a [path repository](../05-repositories.md#path)
+to require the plugin in a test project. If you are developing locally and want to test frequently, you can make sure the path repository uses symlinks, as changes are updated immediately. Otherwise, you'll have to run `rm -rf vendor && composer update`
+every time you want to install/run it again.
 
 ## Using Plugins
 
@@ -331,6 +337,20 @@ As of Composer 2.2.9, you can specify `{"extra": {"plugin-modifies-install-path"
 in your composer.json to hint to Composer that the plugin should be activated as soon
 as possible to prevent any bad side-effects from Composer assuming packages are installed
 in another location than they actually are.
+
+### plugin-optional
+
+Because Composer plugins can be used to perform actions which are necessary for installing
+a working application, like modifying which path files get stored in, skipping required
+plugins unintentionally can result in broken applications. So, in non-interactive mode,
+Composer will fail if a new plugin is not listed in ["allow-plugins"](../06-config.md#allow-plugins)
+to force users to decide if they want to execute the plugin, to avoid silent failures.
+
+As of Composer 2.5.3, you can use the setting `{"extra": {"plugin-optional": true}}` on
+your plugin, to tell Composer that skipping the plugin has no catastrophic consequences,
+and it can safely be disabled in non-interactive mode if it is not yet listed in
+"allow-plugins". The next interactive run of Composer will still prompt users to choose if
+they want to enable or disable the plugin.
 
 ## Plugin Autoloading
 

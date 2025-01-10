@@ -24,6 +24,7 @@ use Composer\Package\PackageInterface;
 use Composer\Semver\Constraint\Constraint;
 use Composer\Test\Mock\FactoryMock;
 use Composer\Test\Mock\HttpDownloaderMock;
+use Composer\Test\Mock\IOMock;
 use Composer\Test\Mock\ProcessExecutorMock;
 use Composer\Util\Filesystem;
 use Composer\Util\Platform;
@@ -60,6 +61,10 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
      */
     private $processExecutorMocks = [];
     /**
+     * @var list<IOMock>
+     */
+    private $ioMocks = [];
+    /**
      * @var list<string>
      */
     private $tempComposerDirs = [];
@@ -73,6 +78,9 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
             $mock->assertComplete();
         }
         foreach ($this->processExecutorMocks as $mock) {
+            $mock->assertComplete();
+        }
+        foreach ($this->ioMocks as $mock) {
             $mock->assertComplete();
         }
 
@@ -94,7 +102,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         $root = sys_get_temp_dir();
 
         do {
-            $unique = $root . DIRECTORY_SEPARATOR . uniqid('composer-test-' . random_int(1000, 9000));
+            $unique = $root . DIRECTORY_SEPARATOR . 'composer-test-' . bin2hex(random_bytes(10));
 
             if (!file_exists($unique) && Silencer::call('mkdir', $unique, 0777)) {
                 return realpath($unique);
@@ -114,9 +122,10 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
      * @see getApplicationTester
      * @param mixed[] $composerJson
      * @param mixed[] $authJson
+     * @param mixed[] $composerLock
      * @return string the newly created temp dir
      */
-    public function initTempComposer(array $composerJson = [], array $authJson = []): string
+    public function initTempComposer(array $composerJson = [], array $authJson = [], array $composerLock = []): string
     {
         $dir = self::getUniqueTmpDirectory();
 
@@ -141,6 +150,10 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         chdir($dir);
         file_put_contents($dir.'/composer.json', JsonFile::encode($composerJson, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         file_put_contents($dir.'/auth.json', JsonFile::encode($authJson, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+        if ($composerLock !== []) {
+            file_put_contents($dir.'/composer.lock', JsonFile::encode($composerLock, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        }
 
         return $dir;
     }
@@ -181,7 +194,7 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     {
         $factory = new FactoryMock();
 
-        $locker = new Locker($this->getMockBuilder(IOInterface::class)->getMock(), new JsonFile('./composer.lock'), $factory->createInstallationManager(), (string) file_get_contents('./composer.json'));
+        $locker = new Locker($this->getIOMock(), new JsonFile('./composer.lock'), $factory->createInstallationManager(), (string) file_get_contents('./composer.json'));
         $locker->setLockData($packages, $devPackages, [], [], [], 'dev', [], false, false, []);
     }
 
@@ -190,8 +203,19 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         $application = new Application();
         $application->setAutoExit(false);
         $application->setCatchExceptions(false);
+        if (method_exists($application, 'setCatchErrors')) {
+            $application->setCatchErrors(false);
+        }
 
         return new ApplicationTester($application);
+    }
+
+    /**
+     * Trims the entire string but also the trailing spaces off of every line
+     */
+    protected function trimLines(string $str): string
+    {
+        return trim(Preg::replace('{^(.*?) *$}m', '$1', $str));
     }
 
     protected static function getVersionParser(): VersionParser
@@ -331,7 +355,6 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     {
         if (Platform::isWindows()) {
             $cmd = Preg::replaceCallback("/('[^']*')/", static function ($m) {
-                assert(is_string($m[1]));
                 // Double-quotes are used only when needed
                 $char = (strpbrk($m[1], " \t^&|<>()") !== false || $m[1] === "''") ? '"' : '';
 
@@ -352,6 +375,16 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     protected function getProcessExecutorMock(): ProcessExecutorMock
     {
         $this->processExecutorMocks[] = $mock = new ProcessExecutorMock($this->getMockBuilder(Process::class));
+
+        return $mock;
+    }
+
+    /**
+     * @param IOInterface::* $verbosity
+     */
+    protected function getIOMock(int $verbosity = IOInterface::DEBUG): IOMock
+    {
+        $this->ioMocks[] = $mock = new IOMock($verbosity);
 
         return $mock;
     }

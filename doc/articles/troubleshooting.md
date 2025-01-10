@@ -71,12 +71,43 @@ indirectly) back on the root package itself, issues can occur in two cases:
    but some CIs do shallow clones so that process can fail when testing pull requests
    and feature branches. In these cases the branch alias may then not be recognized.
    The best solution is to define the version you are on via an environment variable
-   called COMPOSER_ROOT_VERSION. You set it to `dev-main` for example to define
+   called `COMPOSER_ROOT_VERSION`. You set it to `dev-main` for example to define
    the root package's version as `dev-main`.
    Use for example: `COMPOSER_ROOT_VERSION=dev-main composer install` to export
    the variable only for the call to composer, or you can define it globally in the
    CI env vars.
 
+## Root package version detection
+
+Composer relies on knowing the version of the root package to resolve
+dependencies effectively. The version of the root package is determined
+using a hierarchical approach:
+
+1. **composer.json Version Field**: Firstly, Composer looks for a `version`
+   field in the project's root `composer.json` file. If present, this field
+   specifies the version of the root package directly. This is generally not
+   recommended as it needs to be constantly updated, but it is an option.
+
+2. **Environment Variable**: Composer then checks for the `COMPOSER_ROOT_VERSION`
+   environment variable. This variable can be explicitly set by the user to
+   define the version of the root package, providing a straightforward way to
+   inform Composer of the exact version, especially in CI/CD environments or
+   when the VCS method is not applicable.
+
+3. **Version Control System (VCS) Inspection**: Composer then attempts to guess
+   the version by interfacing with the version control system of the project. For
+   instance, in projects versioned with Git, Composer executes specific Git
+   commands to deduce the project's current version based on tags, branches, and
+   commit history. If a `.git` directory is missing or the history is incomplete
+   because CI is using a shallow clone for example, this detection may fail to find
+   the correct version.
+
+4. **Fallback**: If all else fails, Composer uses `1.0.0` as default version.
+
+Note that relying on the default/fallback version might potentially lead to dependency
+resolution issues, especially when the root package depends on a package which ends up
+depending (directly or indirectly)
+[back on the root package itself](#dependencies-on-the-root-package).
 
 ## Network timeout issues, curl error
 
@@ -153,7 +184,6 @@ See [aliases](aliases.md) for more information.
 
 Use `php composer.phar config --list --source` to see where each config value originated from.
 
-
 ## Memory limit errors
 
 The first thing to do is to make sure you are running Composer 2, and if possible 2.2.0 or above.
@@ -194,8 +224,9 @@ Or, you can increase the limit with a command-line argument:
 php -d memory_limit=-1 composer.phar <...>
 ```
 
-This issue can also happen on cPanel instances, when the shell fork bomb protection is activated. For more information, see the [documentation](https://documentation.cpanel.net/display/68Docs/Shell+Fork+Bomb+Protection) of the fork bomb feature on the cPanel site.
+However, please note that setting the memory limit using these methods primarily addresses memory issues within Composer itself and its immediate processes. Child processes or external commands invoked by Composer may still require separate adjustments if they have their own memory requirements.
 
+This issue can also happen on cPanel instances, when the shell fork bomb protection is activated. For more information, see the [documentation](https://documentation.cpanel.net/display/68Docs/Shell+Fork+Bomb+Protection) of the fork bomb feature on the cPanel site.
 
 ## Xdebug impact on Composer
 
@@ -214,6 +245,19 @@ please report this [issue](https://github.com/composer/composer/issues).
    `HKEY_CURRENT_USER\Software\Microsoft\Command Processor`
    or `HKEY_LOCAL_MACHINE\Software\Wow6432Node\Microsoft\Command Processor`.
 3. Check if it contains any path to a non-existent file, if it's the case, remove them.
+
+
+## SSL certificate problem: unable to get local issuer certificate
+
+1. Check that your root certificate store / CA bundle is up to date. Run `composer diagnose -vvv`
+   and look for `Checked CA file ...` or `Checked directory ...` lines in the first lines of output.
+   This will show you where Composer is looking for a CA bundle. You can get a
+   [new cacert.pem from cURL](https://curl.se/docs/caextract.html) and store it there.
+2. If this did not help despite Composer finding a valid CA bundle, try disabling your antivirus and
+   firewall software to see if that helps. We have seen issues where Avast on Windows for example would
+   prevent Composer from functioning correctly. To disable the HTTPS scanning in Avast you can go in
+   "Protection > Core Shields > Web Shield > **uncheck** Enable HTTPS scanning". If this helps you
+   should report it to the software vendor so they can hopefully improve things.
 
 
 ## API rate limit and OAuth tokens
@@ -303,6 +347,11 @@ open stream: Operation timed out
 
 We recommend you fix your IPv6 setup. If that is not possible, you can try the
 following workarounds:
+
+**Generic Workaround:**
+
+Set the [`COMPOSER_IPRESOLVE=4`](../03-cli.md#composer-ipresolve) environment variable which will force curl to resolve
+domains using IPv4. This only works when the curl extension is used for downloads.
 
 **Workaround Linux:**
 
